@@ -2405,7 +2405,7 @@ async function camInit(){
     CAMCFG = await (await fetch("/api/cam")).json();
   } catch(e){ return; }
   camMostrar();
-  document.getElementById("camimg").src = "/fonteframect=" + Date.now();
+  document.getElementById("camimg").src = "/fonteframe?t=" + Date.now();
   camOut();
 }
 
@@ -2427,7 +2427,7 @@ function camMostrar(){
 }
 
 function camOut(){
-  document.getElementById("camout").src = "/camlayoutct=" + Date.now();
+  document.getElementById("camout").src = "/camlayout?t=" + Date.now();
 }
 
 async function camSalvar(){
