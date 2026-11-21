@@ -1,0 +1,13 @@
+﻿vods/
+audio/
+clips/
+preview/
+thumbs/
+temp/
+__pycache__/
+*.log
+*.err
+*.txt
+estado.json
+historico.json
+cam.json
