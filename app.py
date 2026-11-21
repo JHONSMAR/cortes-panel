@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 app.py - painel web para cortar lives.
 
@@ -164,7 +164,7 @@ def _set(pct=None, etapa=None, msg=None, **extra):
         if msg is not None:
             ESTADO["msg"] = msg
         ESTADO.update(extra)
-        # persiste projeto quando hÃ¡ candidatos (permite reabrir sem reanalisar)
+        # persiste projeto quando hÃÂ¡ candidatos (permite reabrir sem reanalisar)
         try:
             src = PROJETO.get("src")
             if src and PROJETO.get("candidatos") and not ESTADO.get("rodando"):
@@ -334,7 +334,7 @@ def api_network_status():
 @app.route("/api/warp/connect", methods=["POST"])
 def api_warp_connect():
     if ESTADO["rodando"]:
-        return jsonify({"erro": "jÃ¡ tem coisa rodando, espera terminar"}), 409
+        return jsonify({"erro": "jÃÂ¡ tem coisa rodando, espera terminar"}), 409
     r = N.warp_connect()
     status = 200 if r.get("ok") else 500
     return jsonify(r), status
@@ -343,7 +343,7 @@ def api_warp_connect():
 @app.route("/api/warp/disconnect", methods=["POST"])
 def api_warp_disconnect():
     if ESTADO["rodando"]:
-        return jsonify({"erro": "jÃ¡ tem coisa rodando, espera terminar"}), 409
+        return jsonify({"erro": "jÃÂ¡ tem coisa rodando, espera terminar"}), 409
     r = N.warp_disconnect()
     status = 200 if r.get("ok") else 500
     return jsonify(r), status
@@ -684,7 +684,7 @@ def api_audio_tracks():
     if not src:
         src = PROJETO.get("src") or ""
     if not src or not os.path.isfile(src):
-        return jsonify({"tracks": [], "erro": "arquivo nÃ£o encontrado"})
+        return jsonify({"tracks": [], "erro": "arquivo nÃÂ£o encontrado"})
     try:
         return jsonify({"tracks": N.ffprobe_audio_tracks(src)})
     except Exception as e:
@@ -698,10 +698,10 @@ def api_presets():
     d = request.get_json(force=True)
     nome = (d.get("nome") or "").strip()[:60]
     if not nome:
-        return jsonify({"erro": "nome do preset obrigatÃ³rio"}), 400
+        return jsonify({"erro": "nome do preset obrigatÃÂ³rio"}), 400
     cfg = d.get("config") or {}
     if not isinstance(cfg, dict):
-        return jsonify({"erro": "config invÃ¡lida"}), 400
+        return jsonify({"erro": "config invÃÂ¡lida"}), 400
     presets = _ler_presets()
     presets[nome] = cfg
     _salvar_presets(presets)
@@ -745,7 +745,7 @@ def _fila_worker():
                 _fila_executar(item)
                 with FILA_LOCK:
                     item["status"] = "concluido"
-                    item["msg"] = "concluÃ­do"
+                    item["msg"] = "concluÃÂ­do"
             except Exception as e:
                 with FILA_LOCK:
                     item["status"] = "erro"
@@ -808,7 +808,7 @@ def _fila_executar(item):
         itens = sorted({int(i) for i in cfg.get("itens", list(range(total_cands))) if 0 <= int(i) < total_cands})
         fmtos = [f for f in cfg.get("formatos", ["916"]) if f in N.FORMATOS]
         if not itens or not fmtos:
-            raise RuntimeError("exportaÃ§Ã£o sem itens/formatos")
+            raise RuntimeError("exportaÃÂ§ÃÂ£o sem itens/formatos")
         _job_exportar(itens, fmtos, cfg.get("modo", "blur"), int(cfg.get("crf", 18)),
                       bool(cfg.get("legenda", True)), int(cfg.get("tamanho_fonte", 0)),
                       (cfg.get("audio_mode") or "original"), int(cfg.get("audio_track", 0)),
@@ -891,7 +891,7 @@ def _add_hist(url, titulo, arquivo):
 @app.route("/api/baixar", methods=["POST"])
 def api_baixar():
     if ESTADO["rodando"]:
-        return jsonify({"erro": "jÃ¡ tem coisa rodando, espera terminar"}), 409
+        return jsonify({"erro": "jÃÂ¡ tem coisa rodando, espera terminar"}), 409
     d = request.get_json(force=True)
     url = (d.get("url") or "").strip()
     if not url:
@@ -907,7 +907,7 @@ def api_baixar():
     def job():
         try:
             _set(rodando=True, erro=None, pct=2, etapa="download",
-                 msg=("baixando Ã¡udio " if audio_only else "baixando ") + url[-24:])
+                 msg=("baixando ÃÂ¡udio " if audio_only else "baixando ") + url[-24:])
             src, info = N.baixar(url, qual, codec,
                                  audio_only=audio_only,
                                  audio_format=audio_format,
@@ -921,7 +921,7 @@ def api_baixar():
             if ("anti-bot/PO token" in msg or "Sign in to confirm" in msg) and "caminho do arquivo local" not in msg:
                 msg = (
                     f"{msg}\n"
-                    "Dica: baixe o vÃ­deo por outro mÃ©todo e cole o caminho do arquivo local no campo de fonte."
+                    "Dica: baixe o vÃÂ­deo por outro mÃÂ©todo e cole o caminho do arquivo local no campo de fonte."
                 )
             _set(rodando=False, pct=0, etapa="erro", erro=f"falha no download: {msg}")
 
@@ -981,9 +981,9 @@ def api_arquivos():
             chaves[k] = nome
         raiz = os.path.splitext(nome)[0]
 
-        itens = [_item("vod|" + nome, "video", "vÃ­deo", p)]
-        for tipo, arq, rot in (("audio", raiz + ".wav", "Ã¡udio"),
-                               ("transcricao", raiz + ".wav.json", "transcriÃ§Ã£o")):
+        itens = [_item("vod|" + nome, "video", "vÃÂ­deo", p)]
+        for tipo, arq, rot in (("audio", raiz + ".wav", "ÃÂ¡udio"),
+                               ("transcricao", raiz + ".wav.json", "transcriÃÂ§ÃÂ£o")):
             audio_ref.add(arq)
             itens.append(_item(f"{tipo}|{arq}", tipo, rot,
                                os.path.join(N.AUDIO, arq)))
@@ -1020,7 +1020,7 @@ def api_arquivos():
                 orf.append(_item("orfao|clipes|" + sub, "clipes", "clipes exportados", p))
 
     if orf:
-        grupos.append({"titulo": "sobras sem vÃ­deo", "chave": None, "tamanho": "",
+        grupos.append({"titulo": "sobras sem vÃÂ­deo", "chave": None, "tamanho": "",
                        "bytes": sum(i["bytes"] for i in orf), "itens": orf})
 
     uso = shutil.disk_usage(BASE)
@@ -1269,7 +1269,7 @@ HTML = r"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Painel local para analisar lives, encontrar highlights e exportar clipes em formatos verticais e horizontais.">
 <meta name="theme-color" content="#0a0c11">
-<title>Cortes â€” Painel de Clipes</title>
+<title>Cortes Ã¢â¬â Painel de Clipes</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%236c5cff'/%3E%3Cstop offset='1' stop-color='%2322d3a6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%23111420'/%3E%3Cpath d='M20 18l26 14-26 14z' fill='url(%23g)'/%3E%3C/svg%3E">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
@@ -1430,13 +1430,13 @@ HTML = r"""<!doctype html>
       <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></svg></div>
       <div>
         <h1>Cortes</h1>
-        <div class="sub">Encontre os melhores momentos da live, ajuste os cortes com precisÃ£o e exporte clipes prontos para Shorts, Reels e YouTube.</div>
+        <div class="sub">Encontre os melhores momentos da live, ajuste os cortes com precisÃÂ£o e exporte clipes prontos para Shorts, Reels e YouTube.</div>
       </div>
     </div>
     <div class="topacts">
       <span class="chip" id="chip"><i></i><span id="chiptxt">parado</span></span>
       <button class="ghost" onclick="abrirBiblioteca()">Biblioteca</button>
-      <button class="ghost" onclick="listarVods()" title="Gerenciar vÃ­deos, Ã¡udios e clipes no disco">Arquivos</button>
+      <button class="ghost" onclick="listarVods()" title="Gerenciar vÃÂ­deos, ÃÂ¡udios e clipes no disco">Arquivos</button>
     </div>
   </header>
 
@@ -1448,17 +1448,17 @@ HTML = r"""<!doctype html>
         <input type="text" id="fonte" placeholder="https://www.youtube.com/live/...">
       </div>
       <button id="btnAnalisar" onclick="analisar()">Analisar</button>
-      <button class="ghost" id="btnWarp" onclick="toggleWarp()" title="Cloudflare WARP (troca IP de saÃ­da)">WARP: ...</button>
+      <button class="ghost" id="btnWarp" onclick="toggleWarp()" title="Cloudflare WARP (troca IP de saÃÂ­da)">WARP: ...</button>
     </div>
     <div class="row mt">
       <div class="f"><label>Trechos</label><input type="number" id="n" value="12" min="1" max="40"></div>
-      <div class="f"><label>DuraÃ§Ã£o</label>
+      <div class="f"><label>DuraÃÂ§ÃÂ£o</label>
         <select id="duracao">
           <option value="60" selected>60s (exato)</option>
           <option value="45">45s</option>
           <option value="30">30s</option>
           <option value="90">90s</option>
-          <option value="0">automÃ¡tica</option>
+          <option value="0">automÃÂ¡tica</option>
         </select></div>
       <div class="f"><label>Modelo</label>
         <select id="modelo"><option value="tiny">tiny</option>
@@ -1466,10 +1466,10 @@ HTML = r"""<!doctype html>
         <option value="medium">medium</option></select></div>
       <div class="f"><label>Idioma</label>
         <select id="idioma">
-          <option value="pt" selected>PortuguÃªs (BR)</option>
+          <option value="pt" selected>PortuguÃÂªs (BR)</option>
           <option value="en">English</option>
-          <option value="fr">FranÃ§ais</option>
-          <option value="es">EspaÃ±ol</option>
+          <option value="fr">FranÃÂ§ais</option>
+          <option value="es">EspaÃÂ±ol</option>
           <option value="auto">Auto</option>
         </select></div>
       <div class="f"><label>Qualidade</label>
@@ -1483,16 +1483,16 @@ HTML = r"""<!doctype html>
     <div class="row mt">
       <div class="f">
         <label>&nbsp;</label>
-        <label class="chk" style="height:41px"><input type="checkbox" id="audioOnly" onchange="toggleAudioOnly()"> sÃ³ Ã¡udio</label>
+        <label class="chk" style="height:41px"><input type="checkbox" id="audioOnly" onchange="toggleAudioOnly()"> sÃÂ³ ÃÂ¡udio</label>
       </div>
-      <div class="f"><label>Formato Ã¡udio</label>
+      <div class="f"><label>Formato ÃÂ¡udio</label>
         <select id="audioFormat">
           <option value="mp3" selected>MP3</option>
           <option value="m4a">M4A</option>
           <option value="opus">Opus</option>
           <option value="wav">WAV</option>
         </select></div>
-      <div class="f"><label>Qualidade Ã¡udio</label>
+      <div class="f"><label>Qualidade ÃÂ¡udio</label>
         <select id="audioQuality">
           <option value="128">128 kbps</option>
           <option value="192" selected>192 kbps</option>
@@ -1522,11 +1522,11 @@ HTML = r"""<!doctype html>
     <div class="toolbar2">
       <span id="selresumo" class="tot"></span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <span class="hint">Edite inÃ­cio/fim ou use os botÃµes de ajuste, depois salve. A prÃ©via recarrega apÃ³s salvar.</span>
+        <span class="hint">Edite inÃÂ­cio/fim ou use os botÃÂµes de ajuste, depois salve. A prÃÂ©via recarrega apÃÂ³s salvar.</span>
         <button class="ghost sm" onclick="salvarTodosAjustes()">salvar todos</button>
       </div>
     </div>
-    <div id="grid"><div class="empty"><strong style="display:block;color:var(--txt);font-size:14px;margin-bottom:6px">Nenhum trecho analisado ainda</strong>Cole um link do YouTube ou caminho local, ajuste os parÃ¢metros e clique em <b>Analisar</b> para gerar candidatos automaticamente.</div></div>
+    <div id="grid"><div class="empty"><strong style="display:block;color:var(--txt);font-size:14px;margin-bottom:6px">Nenhum trecho analisado ainda</strong>Cole um link do YouTube ou caminho local, ajuste os parÃÂ¢metros e clique em <b>Analisar</b> para gerar candidatos automaticamente.</div></div>
   </section>
 
   <section class="card">
@@ -1554,17 +1554,17 @@ HTML = r"""<!doctype html>
       </div>
     </div>
     <div class="row mt">
-      <div class="f"><label>Ãudio do clipe</label>
+      <div class="f"><label>ÃÂudio do clipe</label>
         <select id="audioMode" onchange="toggleAudioMode()">
           <option value="original" selected>Original</option>
           <option value="normalize">Normalizar</option>
           <option value="gain">Ajustar volume</option>
-          <option value="mute">Sem Ã¡udio</option>
+          <option value="mute">Sem ÃÂ¡udio</option>
         </select></div>
       <div class="f" id="audioGainWrap" style="display:none"><label>Ganho (dB) <span id="audioGainV" style="color:var(--acc)">0</span></label>
         <input type="range" id="audioGainDb" min="-18" max="18" value="0" oninput="document.getElementById('audioGainV').textContent=this.value"></div>
-      <div class="f grow"><label>Faixa de Ã¡udio</label>
-        <select id="audioTrack"><option value="0">Faixa 1 (padrÃ£o)</option></select></div>
+      <div class="f grow"><label>Faixa de ÃÂ¡udio</label>
+        <select id="audioTrack"><option value="0">Faixa 1 (padrÃÂ£o)</option></select></div>
     </div>
     <div id="campanel" style="display:none">
       <div class="camwrap">
@@ -1580,9 +1580,9 @@ HTML = r"""<!doctype html>
         </div>
       </div>
       <div class="camctl">
-        <button class="ghost sm" onclick="detectarCam()">detectar automÃ¡tico</button>
+        <button class="ghost sm" onclick="detectarCam()">detectar automÃÂ¡tico</button>
         <label class="chk"><input type="checkbox" id="camMarca" checked
-          onchange="camSalvar()"> marca d'Ã¡gua</label>
+          onchange="camSalvar()"> marca d'ÃÂ¡gua</label>
         <input type="text" id="camTexto" value="VICEMSHORTS" onchange="camSalvar()">
         <label class="chk">cam = <b id="camTopoV" style="color:var(--acc)">45</b>%</label>
         <input type="range" id="camTopo" min="25" max="65" value="45"
@@ -1591,20 +1591,20 @@ HTML = r"""<!doctype html>
       </div>
     </div>
     <div class="preset-row">
-      <div class="f" style="min-width:220px"><label>Preset</label><select id="presetSelect" onchange="aplicarPresetSelecionado()"><option value="">â€” selecionar â€”</option></select></div>
+      <div class="f" style="min-width:220px"><label>Preset</label><select id="presetSelect" onchange="aplicarPresetSelecionado()"><option value="">Ã¢â¬â selecionar Ã¢â¬â</option></select></div>
       <button class="ghost sm" onclick="salvarPreset()">Salvar preset</button>
       <button class="ghost sm" onclick="excluirPreset()">Excluir preset</button>
     </div>
     <div class="expbar">
       <span class="tot" id="selinfo"></span>
       <span class="grow"></span>
-      <button class="ghost" onclick="adicionarFilaExportar()">+ fila exportaÃ§Ã£o</button>
+      <button class="ghost" onclick="adicionarFilaExportar()">+ fila exportaÃÂ§ÃÂ£o</button>
       <button class="ghost" onclick="abrirPasta()">Abrir pasta</button>
       <button class="ghost danger" onclick="sairApp()">Sair</button>
       <button id="btnExport" onclick="exportar()" disabled>Exportar</button>
     </div>
     <div class="fila-box">
-      <div class="fila-head"><div><b style="font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim)">Fila</b> <span id="filaStatus" style="font-size:12px;color:var(--dim2)"></span></div><div style="display:flex;gap:8px"><button class="ghost sm" onclick="adicionarFilaAnalise()">+ fila anÃ¡lise</button><button class="ghost sm" onclick="limparFila()">Limpar</button></div></div>
+      <div class="fila-head"><div><b style="font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim)">Fila</b> <span id="filaStatus" style="font-size:12px;color:var(--dim2)"></span></div><div style="display:flex;gap:8px"><button class="ghost sm" onclick="adicionarFilaAnalise()">+ fila anÃÂ¡lise</button><button class="ghost sm" onclick="limparFila()">Limpar</button></div></div>
       <div class="fila-list" id="filaList"><div class="fila-item">Fila vazia</div></div>
     </div>
   </section>
@@ -1613,15 +1613,15 @@ HTML = r"""<!doctype html>
   <div class="modal" id="modal">
     <div class="mbox">
       <h3>Arquivos no disco</h3>
-      <div class="hint">Cada item Ã© apagado por si. Apagar o vÃ­deo nÃ£o apaga o Ã¡udio, os clipes ou a transcriÃ§Ã£o â€” sÃ³ o que vocÃª mandar.</div>
+      <div class="hint">Cada item ÃÂ© apagado por si. Apagar o vÃÂ­deo nÃÂ£o apaga o ÃÂ¡udio, os clipes ou a transcriÃÂ§ÃÂ£o Ã¢â¬â sÃÂ³ o que vocÃÂª mandar.</div>
       <div class="vfav">
         <input id="reurl" placeholder="link do YouTube pra baixar de novo">
         <button class="ghost sm" onclick="baixarDeNovo()">baixar</button>
       </div>
       <div id="vfalta"></div>
       <div class="disk">
-        <span id="dtotal">â€”</span>
-        <span id="dlivre">â€”</span>
+        <span id="dtotal">Ã¢â¬â</span>
+        <span id="dlivre">Ã¢â¬â</span>
       </div>
       <div id="mlist"></div>
       <div style="margin-top:16px;text-align:right">
@@ -1635,7 +1635,7 @@ HTML = r"""<!doctype html>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
         <div>
           <h3 style="margin:0">Biblioteca</h3>
-          <div class="hint" style="margin:6px 0 0">VODs baixados e clipes/shorts jÃ¡ exportados. Reabra ou abra a pasta direto.</div>
+          <div class="hint" style="margin:6px 0 0">VODs baixados e clipes/shorts jÃÂ¡ exportados. Reabra ou abra a pasta direto.</div>
         </div>
         <button class="ghost sm" onclick="fecharBiblioteca()">fechar</button>
       </div>
@@ -1704,7 +1704,7 @@ async function carregarFaixasAudio(){
     const tracks = j.tracks || [];
     sel.innerHTML = "";
     if(!tracks.length){
-      sel.innerHTML = '<option value="0">Faixa 1 (padrÃ£o)</option>';
+      sel.innerHTML = '<option value="0">Faixa 1 (padrÃÂ£o)</option>';
       return;
     }
     tracks.forEach((t, idx) => {
@@ -1780,14 +1780,14 @@ async function atualizarNetwork(){
     const b = j.bgutil || {};
     const btn = document.getElementById("btnWarp");
     if(btn){
-      if(!w.installed) { btn.textContent = "WARP: off"; btn.disabled = true; btn.title = "Cloudflare WARP nÃ£o instalado"; }
+      if(!w.installed) { btn.textContent = "WARP: off"; btn.disabled = true; btn.title = "Cloudflare WARP nÃÂ£o instalado"; }
       else { btn.disabled = warpBusy; btn.textContent = w.connected ? "WARP: ON" : "WARP: OFF"; btn.title = "Clique para conectar/desconectar Cloudflare WARP (troca IP)"; }
     }
     const ns = document.getElementById("netstatus");
     if(ns){
       const parts = [];
-      parts.push("WARP: " + (w.installed ? (w.connected ? "conectado" : "desconectado") : "nÃ£o instalado"));
-      parts.push("bgutil: " + (b.plugin ? (b.provider ? "ativo" : "plugin sem provider") : "nÃ£o instalado"));
+      parts.push("WARP: " + (w.installed ? (w.connected ? "conectado" : "desconectado") : "nÃÂ£o instalado"));
+      parts.push("bgutil: " + (b.plugin ? (b.provider ? "ativo" : "plugin sem provider") : "nÃÂ£o instalado"));
       ns.style.display = "block";
       ns.innerHTML = parts.map(p => "<div>" + p + "</div>").join("");
     }
@@ -1858,7 +1858,7 @@ const PRESETS_EMBUTIDOS = {
   "Reels/TikTok (9:16)": {n:10, duracao:45, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:5, formatos:["916"], modo:"blur", crf:18, legenda:true, audio_mode:"normalize", audio_track:0, audio_gain_db:0},
   "YouTube (16:9)": {n:8, duracao:90, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:4, formatos:["169"], modo:"crop", crf:20, legenda:false, audio_mode:"original", audio_track:0, audio_gain_db:0},
   "Quadrado (1:1)": {n:10, duracao:45, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:5, formatos:["11"], modo:"blur", crf:20, legenda:true, audio_mode:"normalize", audio_track:0, audio_gain_db:0},
-  "SÃ³ Ã¡udio (MP3)": {n:1, duracao:0, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:5, formatos:["916"], modo:"blur", crf:23, legenda:false, audio_mode:"original", audio_track:0, audio_gain_db:0, _download_audio_only:true, _audio_format:"mp3", _audio_quality:"192"}
+  "SÃÂ³ ÃÂ¡udio (MP3)": {n:1, duracao:0, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:5, formatos:["916"], modo:"blur", crf:23, legenda:false, audio_mode:"original", audio_track:0, audio_gain_db:0, _download_audio_only:true, _audio_format:"mp3", _audio_quality:"192"}
 };
 
 function configAtual(){
@@ -1876,7 +1876,7 @@ async function carregarPresets(){
   try{
     const j = await (await fetch('/api/presets')).json();
     const sel = document.getElementById('presetSelect'); const cur = sel.value;
-    sel.innerHTML = '<option value="">â€” selecionar â€”</option>';
+    sel.innerHTML = '<option value="">Ã¢â¬â selecionar Ã¢â¬â</option>';
     const builtins = PRESETS_EMBUTIDOS;
     const user = j.presets || {};
     const og1 = document.createElement('optgroup'); og1.label='Embutidos';
@@ -1913,10 +1913,10 @@ async function salvarPreset(){
 }
 async function excluirPreset(){
   const val = document.getElementById('presetSelect').value; if(!val){toast('Selecione um preset','erro');return;}
-  if(val.startsWith('builtin:')){ toast('Presets embutidos nÃ£o podem ser excluÃ­dos','erro'); return; }
+  if(val.startsWith('builtin:')){ toast('Presets embutidos nÃÂ£o podem ser excluÃÂ­dos','erro'); return; }
   const nome = val.startsWith('user:') ? val.slice(5) : val;
   if(!await confirmar(`Excluir preset "${nome}"?`)) return;
-  const r = await fetch('/api/presets/'+encodeURIComponent(nome),{method:'DELETE'}); const j=await r.json(); window.__presets=j.presets||{}; await carregarPresets(); toast('Preset excluÃ­do','ok');
+  const r = await fetch('/api/presets/'+encodeURIComponent(nome),{method:'DELETE'}); const j=await r.json(); window.__presets=j.presets||{}; await carregarPresets(); toast('Preset excluÃÂ­do','ok');
 }
 
 async function atualizarFila(){
@@ -1924,7 +1924,7 @@ async function atualizarFila(){
     const j = await (await fetch('/api/fila')).json();
     const list = document.getElementById('filaList');
     const itens = j.itens || [];
-    document.getElementById('filaStatus').textContent = j.ativa ? ` â€¢ ativa (${itens.filter(i=>i.status!=='concluido').length} pendente/rodando)` : '';
+    document.getElementById('filaStatus').textContent = j.ativa ? ` Ã¢â¬Â¢ ativa (${itens.filter(i=>i.status!=='concluido').length} pendente/rodando)` : '';
     if(!itens.length){ list.innerHTML='<div class="fila-item">Fila vazia</div>'; return; }
     list.innerHTML = itens.slice(-20).map(i=>`<div class="fila-item"><b>${i.status}</b><span>${i.tipo}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(i.msg||'').replace(/</g,'&lt;')}</span></div>`).join('');
   }catch(e){}
@@ -1934,13 +1934,13 @@ async function adicionarFilaAnalise(){
   const fonte = document.getElementById('fonte').value.trim(); if(!fonte){toast('Cole fonte para enfileirar','erro');return;}
   const cfg = {...configAtual(), fonte};
   const r = await fetch('/api/fila',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itens:[{tipo:'analisar',config:cfg}]})});
-  const j = await r.json(); if(j.erro){toast(j.erro,'erro');return;} toast('AnÃ¡lise adicionada Ã  fila','ok'); atualizarFila();
+  const j = await r.json(); if(j.erro){toast(j.erro,'erro');return;} toast('AnÃÂ¡lise adicionada ÃÂ  fila','ok'); atualizarFila();
 }
 async function adicionarFilaExportar(){
   const ids=[...selecionados]; if(!ids.length){toast('Selecione trechos','erro');return;}
   const cfg = {...configAtual(), itens:ids};
   const r = await fetch('/api/fila',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itens:[{tipo:'exportar',config:cfg}]})});
-  const j = await r.json(); if(j.erro){toast(j.erro,'erro');return;} toast('ExportaÃ§Ã£o adicionada Ã  fila','ok'); atualizarFila();
+  const j = await r.json(); if(j.erro){toast(j.erro,'erro');return;} toast('ExportaÃÂ§ÃÂ£o adicionada ÃÂ  fila','ok'); atualizarFila();
 }
 async function limparFila(){ await fetch('/api/fila/limpar',{method:'POST'}); atualizarFila(); }
 
@@ -1970,21 +1970,21 @@ function render(){
     el.innerHTML = `
       <div class="thumb" onclick="ver(${c.id}, this)">
         <img src="/thumb/${chave}/${c.id}" loading="lazy">
-        <div class="badge">${fmtT(c.inicio)} â†’ ${fmtT(c.fim)}</div>
+        <div class="badge">${fmtT(c.inicio)} Ã¢â â ${fmtT(c.fim)}</div>
         ${c.score ? `<div class="badge r">${Math.round(c.score)}</div>` : ""}
         <div class="badge b" data-role="dur">${(+c.dur).toFixed(1)}s</div>
         <div class="play">&#9654;</div>
       </div>
       <div class="body">
         <div class="meta">
-          <span class="time" data-role="time">${fmtT(c.inicio)} â€“ ${fmtT(c.fim)}</span>
+          <span class="time" data-role="time">${fmtT(c.inicio)} Ã¢â¬â ${fmtT(c.fim)}</span>
           <span class="durbadge ${ok60?'ok':''}" data-role="badge">${(+c.dur).toFixed(1)}s</span>
         </div>
         <div class="txt" title="${(c.texto||"").slice(0,400).replace(/"/g,"&quot;")}">${(c.texto||"").slice(0,180)}</div>
         <div class="editor">
-          <div><label>InÃ­cio (s)</label><input type="number" step="0.1" value="${c.inicio}" id="i${c.id}" onchange="syncDur(${c.id},'i')"></div>
+          <div><label>InÃÂ­cio (s)</label><input type="number" step="0.1" value="${c.inicio}" id="i${c.id}" onchange="syncDur(${c.id},'i')"></div>
           <div><label>Fim (s)</label><input type="number" step="0.1" value="${c.fim}" id="f${c.id}" onchange="syncDur(${c.id},'f')"></div>
-          <div style="grid-column:1/-1"><label>DuraÃ§Ã£o alvo (s)</label>
+          <div style="grid-column:1/-1"><label>DuraÃÂ§ÃÂ£o alvo (s)</label>
             <div style="display:flex;gap:8px;align-items:center">
               <input type="number" step="1" value="${Math.round(c.dur||60)}" id="d${c.id}" onchange="syncDur(${c.id},'d')" style="max-width:110px">
               <button class="ghost sm" onclick="aplicarDuracao(${c.id},60)">60s exato</button>
@@ -2004,7 +2004,7 @@ function render(){
           <label class="chk"><input type="checkbox" ${selecionados.has(c.id)?"checked":""}
             onchange="marcar(${c.id}, this.checked)"> selecionar</label>
           <div class="acts">
-            <button class="ghost sm" onclick="ver(${c.id}, card(${c.id}).querySelector('.thumb'))">prÃ©via</button>
+            <button class="ghost sm" onclick="ver(${c.id}, card(${c.id}).querySelector('.thumb'))">prÃÂ©via</button>
             <button class="sm acc" onclick="ajustar(${c.id})">salvar corte</button>
           </div>
         </div>
@@ -2036,9 +2036,9 @@ function atualizarCardInfo(id, ini, fim){
   const dur = +(fim-ini).toFixed(1);
   const ok60 = Math.abs(dur - 60) < 0.6;
   const b = el.querySelector('[data-role="dur"]'); if(b) b.textContent = dur.toFixed(1)+"s";
-  const t = el.querySelector('[data-role="time"]'); if(t) t.textContent = fmtT(ini)+" â€“ "+fmtT(fim);
+  const t = el.querySelector('[data-role="time"]'); if(t) t.textContent = fmtT(ini)+" Ã¢â¬â "+fmtT(fim);
   const bg = el.querySelector('[data-role="badge"]'); if(bg){ bg.textContent = dur.toFixed(1)+"s"; bg.classList.toggle("ok", ok60); }
-  const top = el.querySelector('.badge'); if(top) top.textContent = fmtT(ini)+" â†’ "+fmtT(fim);
+  const top = el.querySelector('.badge'); if(top) top.textContent = fmtT(ini)+" Ã¢â â "+fmtT(fim);
   const c = cands.find(x=>x.id===id); if(c){ c.inicio = ini; c.fim = fim; c.dur = dur; }
 }
 
@@ -2198,9 +2198,9 @@ async function renderArquivos(){
   box.innerHTML = "";
 
   document.getElementById("dtotal").textContent =
-    "EspaÃ§o usado pelos arquivos: " + tam(d.total_bytes);
+    "EspaÃÂ§o usado pelos arquivos: " + tam(d.total_bytes);
   document.getElementById("dlivre").textContent =
-    "EspaÃ§o livre no disco: " + tam(d.livre_bytes);
+    "EspaÃÂ§o livre no disco: " + tam(d.livre_bytes);
 
   renderFaltando(d.historico || []);
 
@@ -2299,7 +2299,7 @@ async function baixarUrl(url, btn){
   });
   const j = await r.json();
   if(j.erro){ toast(j.erro, "erro"); if(btn) btn.disabled = false; return; }
-  toast("baixando â€” acompanhe a barra", "ok");
+  toast("baixando Ã¢â¬â acompanhe a barra", "ok");
   fecharModal();
   iniciarPolling();
 }
@@ -2313,7 +2313,7 @@ async function baixarDeNovo(){
 }
 
 async function apagarItem(it, btn){
-  if(!await confirmar("Apagar " + it.rotulo + " (" + tam(it.bytes) + ")?\n\nSÃ³ esse item, o resto fica.")) return;
+  if(!await confirmar("Apagar " + it.rotulo + " (" + tam(it.bytes) + ")?\n\nSÃÂ³ esse item, o resto fica.")) return;
   btn.disabled = true;
 
   const enviar = async (body) => (await fetch("/api/apagar-item", {
@@ -2324,7 +2324,7 @@ async function apagarItem(it, btn){
   let j = await enviar({id: it.id, confirmar: true});
 
   if(j.erro === "protegido"){
-    if(!await confirmar("Este Ã© o vÃ­deo do Ãºltimo projeto analisado.\n\nApagar mesmo assim?")){
+    if(!await confirmar("Este ÃÂ© o vÃÂ­deo do ÃÂºltimo projeto analisado.\n\nApagar mesmo assim?")){
       btn.disabled = false;
       return;
     }
@@ -2420,8 +2420,8 @@ function camMostrar(){
   document.getElementById("camTopo").value = pct;
   document.getElementById("camTopoV").textContent = pct;
   document.getElementById("camInfo").textContent =
-    "x " + Math.round(CAMCFG.x*100) + "% Â· y " + Math.round(CAMCFG.y*100) +
-    "% Â· w " + Math.round(CAMCFG.w*100) + "% Â· h " + Math.round(CAMCFG.h*100) + "%";
+    "x " + Math.round(CAMCFG.x*100) + "% ÃÂ· y " + Math.round(CAMCFG.y*100) +
+    "% ÃÂ· w " + Math.round(CAMCFG.w*100) + "% ÃÂ· h " + Math.round(CAMCFG.h*100) + "%";
 }
 
 function camOut(){
@@ -2459,9 +2459,9 @@ async function detectarCam(){
     if(j.erro){ toast(j.erro, "erro"); return; }
     CAMCFG = j;
     camMostrar(); camOut();
-    toast("cam encontrada â€” ajuste arrastando se precisar");
+    toast("cam encontrada Ã¢â¬â ajuste arrastando se precisar");
   } finally {
-    btn.disabled = false; btn.textContent = "detectar automÃ¡tico";
+    btn.disabled = false; btn.textContent = "detectar automÃÂ¡tico";
   }
 }
 
