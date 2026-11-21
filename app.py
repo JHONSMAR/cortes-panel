@@ -182,7 +182,7 @@ def _job_analisar(fonte, opcoes):
             PROJETO.update({"src": None, "dims": None, "titulo": "", "dur": 0.0,
                             "segmentos": [], "candidatos": [], "chave": ""})
 
-        if re.match(r"^httpsc://", fonte):
+        if re.match(r"^https?://", fonte):
             _set(5, "download", "baixando video do YouTube...")
             src, info = N.baixar(fonte, opcoes["qualidade"], opcoes["codec"])
             titulo = info.get("title") or "live"
@@ -1722,7 +1722,7 @@ async function carregarFaixasAudio(){
 async function baixarFonte(){
   const fonte = document.getElementById("fonte").value.trim();
   if(!fonte){ toast("Cole um link ou caminho", "erro"); return; }
-  if(!/^httpsc:\/\//i.test(fonte)){ toast("Para baixar direto, use um link http/https", "erro"); return; }
+  if(!/^https?:\/\//i.test(fonte)){ toast("Para baixar direto, use um link http/https", "erro"); return; }
   const body = {
     url: fonte,
     qualidade: +document.getElementById("qualidade").value,
