@@ -238,91 +238,128 @@ def baixar(url, qual=1080, codec="avc", nome=None, cookies_file=None):
             "sign in to confirm", "not a bot", "confirm you",
             "use --cookies", "cookies-from-browser", "authentication required",
         ))
-        if not precisa_cookies:
+        formato_indisponivel = any(s in msg for s in (
+            "requested format is not available", "no video formats", "no formats found",
+        ))
+
+        if formato_indisponivel:
+            # Tenta formatos progressivamente mais permissivos
+            fallbacks_fmt = [
+                f"bv*[height<={qual}]+ba/b[height<={qual}]/bv*+ba/b/best",
+                f"bestvideo[height<={qual}]+bestaudio/best[height<={qual}]/best",
+                "bv*+ba/b/best",
+                "best",
+            ]
+            resolvido = False
+            ultimo_erro = e
+            for ftry in fallbacks_fmt:
+                if ftry == fmt:
+                    continue
+                try:
+                    log(f"      Formato indisponível: tentando fallback de formato...")
+                    opts = dict(opcoes_base)
+                    opts["format"] = ftry
+                    path, info = _tentar(opts)
+                    resolvido = True
+                    break
+                except Exception as ef:
+                    ultimo_erro = ef
+                    continue
+            if not resolvido:
+                raise RuntimeError(
+                    "Nenhum formato de vídeo disponível para este link com as opções atuais.\n"
+                    "Tente: 1) atualizar yt-dlp (pip install -U yt-dlp), 2) mudar qualidade/codec, "
+                    "3) fornecer cookies.txt se o vídeo exigir login.\n\n"
+                    f"Erro original: {ultimo_erro}"
+                ) from ultimo_erro
+            # sucesso no fallback de formato - pula resto do handler
+            e = None
+        elif not precisa_cookies:
             raise
 
-        # 1) Fallback sem cookies: alguns clients evitam o bloqueio anti-bot.
-        for clientes in (["mweb"], ["ios", "web"], ["android", "web"]):
-            try:
-                log(f"      YouTube bloqueou: tentando client alternativo ({','.join(clientes)})...")
-                opts = dict(opcoes_base)
-                ea = dict(opts.get("extractor_args") or {})
-                yt = dict(ea.get("youtube") or {})
-                yt["player_client"] = list(clientes)
-                ea["youtube"] = yt
-                opts["extractor_args"] = ea
-                path, info = _tentar(opts)
-                log(f"      ok com client alternativo ({','.join(clientes)})")
-                break
-            except Exception:
-                continue
-        else:
-            # 2) Fallback com cookies do navegador (apenas navegadores detectados).
-            erros_browser = []
-            paths = _browser_cookie_paths()
-            browsers = [b for b in ("edge", "chrome", "chromium", "firefox", "brave", "opera", "vivaldi")
-                        if _browser_presente(b, paths)]
-            if cookies_file and os.path.exists(cookies_file):
-                browsers = []  # cookiefile já foi tentado; evita repetir ruído
-
-            ok = False
-            for browser in browsers:
+        if e is not None:
+            # 1) Fallback sem cookies: alguns clients evitam o bloqueio anti-bot.
+            for clientes in (["mweb"], ["ios", "web"], ["android", "web"]):
                 try:
-                    log(f"      YouTube bloqueou: tentando cookies do {browser}...")
+                    log(f"      YouTube bloqueou: tentando client alternativo ({','.join(clientes)})...")
                     opts = dict(opcoes_base)
-                    opts.pop("cookiefile", None)
-                    # Para Chromium, tenta perfil Default explicitamente (mais confiável no Windows).
-                    if browser in ("edge", "chrome", "brave", "chromium", "vivaldi", "opera"):
-                        opts["cookiesfrombrowser"] = (browser, "Default")
-                    else:
-                        opts["cookiesfrombrowser"] = (browser,)
+                    ea = dict(opts.get("extractor_args") or {})
+                    yt = dict(ea.get("youtube") or {})
+                    yt["player_client"] = list(clientes)
+                    ea["youtube"] = yt
+                    opts["extractor_args"] = ea
                     path, info = _tentar(opts)
-                    log(f"      ok com cookies do {browser}")
-                    ok = True
+                    log(f"      ok com client alternativo ({','.join(clientes)})")
                     break
-                except Exception as eb:
-                    msg_eb = str(eb)
-                    # Edge no Windows pode falhar com DPAPI/cópia de DB; Chrome às vezes funciona.
-                    if browser == "edge" and any(s in msg_eb for s in ("DPAPI", "Could not copy Chrome cookie database")):
-                        try:
-                            log("      Edge falhou no DPAPI/cópia de cookies: tentando chrome...")
-                            opts2 = dict(opcoes_base)
-                            opts2.pop("cookiefile", None)
-                            opts2["cookiesfrombrowser"] = ("chrome", "Default")
-                            path, info = _tentar(opts2)
-                            log("      ok com cookies do chrome")
-                            ok = True
-                            break
-                        except Exception as eb2:
-                            erros_browser.append(f"chrome(fallback): {str(eb2).splitlines()[0][:160]}")
-                    erros_browser.append(f"{browser}: {msg_eb.splitlines()[0][:160]}")
+                except Exception:
                     continue
+            else:
+                # 2) Fallback com cookies do navegador (apenas navegadores detectados).
+                erros_browser = []
+                paths = _browser_cookie_paths()
+                browsers = [b for b in ("edge", "chrome", "chromium", "firefox", "brave", "opera", "vivaldi")
+                            if _browser_presente(b, paths)]
+                if cookies_file and os.path.exists(cookies_file):
+                    browsers = []  # cookiefile já foi tentado; evita repetir ruído
 
-            if not ok:
-                if not browsers and not cookies_file:
-                    dica_nav = "  - Nenhum navegador suportado com cookies detectado automaticamente."
-                else:
-                    dica_nav = "\n".join(f"  - {x}" for x in erros_browser[-8:]) if erros_browser else "  - Falha ao ler cookies do navegador."
+                ok = False
+                for browser in browsers:
+                    try:
+                        log(f"      YouTube bloqueou: tentando cookies do {browser}...")
+                        opts = dict(opcoes_base)
+                        opts.pop("cookiefile", None)
+                        # Para Chromium, tenta perfil Default explicitamente (mais confiável no Windows).
+                        if browser in ("edge", "chrome", "brave", "chromium", "vivaldi", "opera"):
+                            opts["cookiesfrombrowser"] = (browser, "Default")
+                        else:
+                            opts["cookiesfrombrowser"] = (browser,)
+                        path, info = _tentar(opts)
+                        log(f"      ok com cookies do {browser}")
+                        ok = True
+                        break
+                    except Exception as eb:
+                        msg_eb = str(eb)
+                        # Edge no Windows pode falhar com DPAPI/cópia de DB; Chrome às vezes funciona.
+                        if browser == "edge" and any(s in msg_eb for s in ("DPAPI", "Could not copy Chrome cookie database")):
+                            try:
+                                log("      Edge falhou no DPAPI/cópia de cookies: tentando chrome...")
+                                opts2 = dict(opcoes_base)
+                                opts2.pop("cookiefile", None)
+                                opts2["cookiesfrombrowser"] = ("chrome", "Default")
+                                path, info = _tentar(opts2)
+                                log("      ok com cookies do chrome")
+                                ok = True
+                                break
+                            except Exception as eb2:
+                                erros_browser.append(f"chrome(fallback): {str(eb2).splitlines()[0][:160]}")
+                        erros_browser.append(f"{browser}: {msg_eb.splitlines()[0][:160]}")
+                        continue
 
-                tem_dpapi = any("DPAPI" in x or "Could not copy Chrome cookie database" in x for x in erros_browser)
-                dica_extra = ""
-                if tem_dpapi:
-                    dica_extra = (
-                        "\n  4) No Windows, se aparecer DPAPI/cópia de cookies: feche totalmente Edge/Chrome e tente de novo.\n"
-                        "     Se persistir, use cookies.txt (método mais confiável) ou veja: https://github.com/yt-dlp/yt-dlp/issues/10927\n"
-                    )
+                if not ok:
+                    if not browsers and not cookies_file:
+                        dica_nav = "  - Nenhum navegador suportado com cookies detectado automaticamente."
+                    else:
+                        dica_nav = "\n".join(f"  - {x}" for x in erros_browser[-8:]) if erros_browser else "  - Falha ao ler cookies do navegador."
 
-                raise RuntimeError(
-                    "O YouTube exigiu verificação anti-bot e o download não pôde ser autenticado automaticamente.\n"
-                    "Como resolver:\n"
-                    "  1) Exporte os cookies do YouTube para um arquivo cookies.txt e informe no campo 'cookies' do painel.\n"
-                    "     Guia: https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp\n"
-                    "  2) Se for usar cookies do navegador, feche o navegador completamente e tente novamente.\n"
-                    "  3) Atualize o yt-dlp: pip install -U yt-dlp"
-                    f"{dica_extra}\n"
-                    f"Tentativas automáticas:\n{dica_nav}\n\n"
-                    f"Erro original: {e}"
-                ) from e
+                    tem_dpapi = any("DPAPI" in x or "Could not copy Chrome cookie database" in x for x in erros_browser)
+                    dica_extra = ""
+                    if tem_dpapi:
+                        dica_extra = (
+                            "\n  4) No Windows, se aparecer DPAPI/cópia de cookies: feche totalmente Edge/Chrome e tente de novo.\n"
+                            "     Se persistir, use cookies.txt (método mais confiável) ou veja: https://github.com/yt-dlp/yt-dlp/issues/10927\n"
+                        )
+
+                    raise RuntimeError(
+                        "O YouTube exigiu verificação anti-bot e o download não pôde ser autenticado automaticamente.\n"
+                        "Como resolver:\n"
+                        "  1) Exporte os cookies do YouTube para um arquivo cookies.txt e informe no campo 'cookies' do painel.\n"
+                        "     Guia: https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp\n"
+                        "  2) Se for usar cookies do navegador, feche o navegador completamente e tente novamente.\n"
+                        "  3) Atualize o yt-dlp: pip install -U yt-dlp"
+                        f"{dica_extra}\n"
+                        f"Tentativas automáticas:\n{dica_nav}\n\n"
+                        f"Erro original: {e}"
+                    ) from e
 
     log(f"      salvo em: {path}")
     return path, info
