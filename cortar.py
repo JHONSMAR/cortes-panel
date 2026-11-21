@@ -167,6 +167,28 @@ def baixar(url, qual=1080, codec="avc", nome=None, cookies_file=None):
             path = info["requested_downloads"][0]["filepath"]
         return path, info
 
+    def _browser_cookie_paths():
+        env = os.environ
+        local = env.get("LOCALAPPDATA", "")
+        roaming = env.get("APPDATA", "")
+        return {
+            "edge": [os.path.join(local, "Microsoft", "Edge", "User Data", "Default", "Network", "Cookies"),
+                     os.path.join(local, "Microsoft", "Edge", "User Data", "Default", "Cookies")],
+            "chrome": [os.path.join(local, "Google", "Chrome", "User Data", "Default", "Network", "Cookies"),
+                       os.path.join(local, "Google", "Chrome", "User Data", "Default", "Cookies")],
+            "chromium": [os.path.join(local, "Chromium", "User Data", "Default", "Network", "Cookies")],
+            "firefox": [os.path.join(roaming, "Mozilla", "Firefox", "Profiles")],
+            "brave": [os.path.join(local, "BraveSoftware", "Brave-Browser", "User Data", "Default", "Network", "Cookies")],
+            "opera": [os.path.join(roaming, "Opera Software", "Opera Stable", "Network", "Cookies")],
+            "vivaldi": [os.path.join(local, "Vivaldi", "User Data", "Default", "Network", "Cookies")],
+        }
+
+    def _browser_presente(browser, paths):
+        for p in paths.get(browser, []):
+            if os.path.exists(p):
+                return True
+        return False
+
     try:
         path, info = _tentar(opcoes_base)
     except Exception as e:
@@ -178,32 +200,61 @@ def baixar(url, qual=1080, codec="avc", nome=None, cookies_file=None):
         if not precisa_cookies:
             raise
 
-        erros_browser = []
-        for browser in ("edge", "chrome", "chromium", "firefox", "brave", "opera", "vivaldi"):
+        # 1) Fallback sem cookies: alguns clients evitam o bloqueio anti-bot.
+        for clientes in (["mweb"], ["ios", "web"], ["android", "web"]):
             try:
-                log(f"      YouTube bloqueou: tentando cookies do {browser}...")
+                log(f"      YouTube bloqueou: tentando client alternativo ({','.join(clientes)})...")
                 opts = dict(opcoes_base)
-                # evita conflito com cookiefile e força autenticação via navegador
-                opts.pop("cookiefile", None)
-                opts["cookiesfrombrowser"] = (browser,)
+                ea = dict(opts.get("extractor_args") or {})
+                yt = dict(ea.get("youtube") or {})
+                yt["player_client"] = list(clientes)
+                ea["youtube"] = yt
+                opts["extractor_args"] = ea
                 path, info = _tentar(opts)
-                log(f"      ok com cookies do {browser}")
+                log(f"      ok com client alternativo ({','.join(clientes)})")
                 break
-            except Exception as eb:
-                erros_browser.append(f"{browser}: {str(eb).splitlines()[0][:140]}")
+            except Exception:
                 continue
         else:
-            detalhes = "\n".join(f"  - {x}" for x in erros_browser[-5:]) if erros_browser else "  - nenhum navegador com cookies disponível"
-            raise RuntimeError(
-                "O YouTube exigiu verificação anti-bot e o download não pôde ser autenticado automaticamente.\n"
-                "Como resolver:\n"
-                "  1) Exporte os cookies do navegador para um arquivo cookies.txt e informe no campo de cookies do painel/CLI.\n"
-                "     Guia: https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp\n"
-                "  2) Feche o navegador e tente novamente (o yt-dlp pode conseguir ler os cookies locais).\n"
-                "  3) Atualize o yt-dlp: pip install -U yt-dlp\n\n"
-                f"Tentativas de cookies do navegador:\n{detalhes}\n\n"
-                f"Erro original: {e}"
-            ) from e
+            # 2) Fallback com cookies do navegador (apenas navegadores detectados).
+            erros_browser = []
+            paths = _browser_cookie_paths()
+            browsers = [b for b in ("edge", "chrome", "chromium", "firefox", "brave", "opera", "vivaldi")
+                        if _browser_presente(b, paths)]
+            if cookies_file and os.path.exists(cookies_file):
+                browsers = []  # cookiefile já foi tentado; evita repetir ruído
+
+            ok = False
+            for browser in browsers:
+                try:
+                    log(f"      YouTube bloqueou: tentando cookies do {browser}...")
+                    opts = dict(opcoes_base)
+                    opts.pop("cookiefile", None)
+                    opts["cookiesfrombrowser"] = (browser,)
+                    path, info = _tentar(opts)
+                    log(f"      ok com cookies do {browser}")
+                    ok = True
+                    break
+                except Exception as eb:
+                    erros_browser.append(f"{browser}: {str(eb).splitlines()[0][:160]}")
+                    continue
+
+            if not ok:
+                if not browsers and not cookies_file:
+                    dica_nav = "  - Nenhum navegador suportado com cookies detectado automaticamente."
+                else:
+                    dica_nav = "\n".join(f"  - {x}" for x in erros_browser[-6:]) if erros_browser else "  - Falha ao ler cookies do navegador."
+
+                raise RuntimeError(
+                    "O YouTube exigiu verificação anti-bot e o download não pôde ser autenticado automaticamente.\n"
+                    "Como resolver:\n"
+                    "  1) Exporte os cookies do YouTube para um arquivo cookies.txt e informe no campo 'cookies' do painel.\n"
+                    "     Guia: https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp\n"
+                    "  2) Se for usar cookies do navegador, feche o navegador completamente e tente novamente.\n"
+                    "  3) Atualize o yt-dlp: pip install -U yt-dlp\n\n"
+                    f"Tentativas automáticas:\n{dica_nav}\n\n"
+                    f"Erro original: {e}"
+                ) from e
 
     log(f"      salvo em: {path}")
     return path, info
