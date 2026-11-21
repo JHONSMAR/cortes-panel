@@ -216,18 +216,14 @@ def baixar(url, qual=1080, codec="avc", nome=None, cookies_file=None):
             log(f"      aviso: arquivo de cookies não encontrado: {cookies_file}")
             cookies_file = None
 
-        def _tentar(opts):
+    def _tentar(opts):
         # Captura saída do yt-dlp no log persistente (cortes.log via N.log/_log)
         opts = dict(opts)
         opts.setdefault("logger", _YtLogger())
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                path = info["requested_downloads"][0]["filepath"]
-            return path, info
-        except Exception:
-            # deixa o caller tratar; o logger já registrou detalhes
-            raise
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            path = info["requested_downloads"][0]["filepath"]
+        return path, info
 
     def _browser_cookie_paths():
         import glob
