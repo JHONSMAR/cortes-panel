@@ -147,29 +147,12 @@ def baixar(url, qual=1080, codec="avc", nome=None):
 
     modelo_nome = (nome if nome else "%(title).80s") + ".%(ext)s"
 
-
-    # protocol^=http exclui os streams m3u8 "Untested", que costumam ter
-    # bitrate inflado (18 GB em vez de 11 GB no mesmo 1080p60).
-    # Fallbacks progressivos para evitar "Requested format is not available".
+    # Formato simples e robusto (como era antes).
     if codec == "vp9":
-        fmt = (
-            f"bv*[height<={qual}][vcodec^=vp9][protocol^=http]+ba[protocol^=http]/"
-            f"bv*[height<={qual}][vcodec^=vp9]+ba/"
-            f"bv*[height<={qual}][protocol^=http]+ba[protocol^=http]/"
-            f"bv*[height<={qual}]+ba/"
-            f"b[height<={qual}]/"
-            f"bv*+ba/b/best"
-        )
+        fmt = f"bv*[height<={qual}][vcodec^=vp9]+ba/b[height<={qual}]/bv*+ba/b/best"
         container = "mkv"
     else:
-        fmt = (
-            f"bv*[height<={qual}][vcodec^=avc1][protocol^=http]+ba[protocol^=http]/"
-            f"bv*[height<={qual}][vcodec^=avc1]+ba/"
-            f"bv*[height<={qual}][protocol^=http]+ba[protocol^=http]/"
-            f"bv*[height<={qual}]+ba/"
-            f"b[height<={qual}]/"
-            f"bv*+ba/b/best"
-        )
+        fmt = f"bv*[height<={qual}][vcodec^=avc1]+ba/b[height<={qual}]/bv*+ba/b/best"
         container = "mp4"
 
     def hook(d):
@@ -181,137 +164,28 @@ def baixar(url, qual=1080, codec="avc", nome=None):
         elif d.get("status") == "finished":
             print()
 
-    opcoes_base = {
+    opcoes = {
         "format": fmt,
         "outtmpl": os.path.join(VODS, modelo_nome),
         "merge_output_format": container,
         "ffmpeg_location": _FFMPEG_DIR,
         "noplaylist": True,
-        "quiet": False,
-        "no_warnings": False,
+        "quiet": True,
+        "no_warnings": True,
         "progress_hooks": [hook],
-        "retries": 5,
-        # Resolve desafios JS do YouTube (nsig etc). Node está disponível na máquina.
+        "retries": 10,
+        "fragment_retries": 10,
+        "concurrent_fragment_downloads": 1,
+        # Necessário para YouTube atual (nsig/ejs). Node já está instalado.
         "js_runtimes": {"node": {}},
         "remote_components": ["ejs:github"],
-        # Evita falha total quando um client (ex: web_safari) quebra por PO token.
         "extractor_args": {"youtube": {"player_client": ["default", "-web_safari"]}},
+        "logger": _YtLogger(),
     }
-    # Cookies removidos por decisão do usuário; download sem autenticação por cookies.
 
-    def _tentar(opts):
-        # Captura saída do yt-dlp no log persistente (cortes.log via N.log/_log)
-        opts = dict(opts)
-        opts.setdefault("logger", _YtLogger())
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            path = info["requested_downloads"][0]["filepath"]
-        return path, info
-
-    def _browser_cookie_paths():
-        import glob
-        env = os.environ
-        local = env.get("LOCALAPPDATA", "")
-        roaming = env.get("APPDATA", "")
-
-        def _glob_many(patterns):
-            out = []
-            for pat in patterns:
-                out.extend(glob.glob(pat))
-            return out
-
-        chromium_profiles = lambda base: _glob_many([
-            os.path.join(base, "Default", "Network", "Cookies"),
-            os.path.join(base, "Default", "Cookies"),
-            os.path.join(base, "Profile *", "Network", "Cookies"),
-            os.path.join(base, "Profile *", "Cookies"),
-        ])
-
-        return {
-            "edge": chromium_profiles(os.path.join(local, "Microsoft", "Edge", "User Data")),
-            "chrome": chromium_profiles(os.path.join(local, "Google", "Chrome", "User Data")),
-            "chromium": chromium_profiles(os.path.join(local, "Chromium", "User Data")),
-            "firefox": _glob_many([
-                os.path.join(roaming, "Mozilla", "Firefox", "Profiles", "*.default*", "cookies.sqlite"),
-                os.path.join(roaming, "Mozilla", "Firefox", "Profiles", "*", "cookies.sqlite"),
-            ]),
-            "brave": chromium_profiles(os.path.join(local, "BraveSoftware", "Brave-Browser", "User Data")),
-            "opera": chromium_profiles(os.path.join(roaming, "Opera Software", "Opera Stable")) +
-                     chromium_profiles(os.path.join(roaming, "Opera Software", "Opera GX Stable")),
-            "vivaldi": chromium_profiles(os.path.join(local, "Vivaldi", "User Data")),
-        }
-
-    def _browser_presente(browser, paths):
-        return any(os.path.exists(p) for p in paths.get(browser, []))
-
-    try:
-        path, info = _tentar(opcoes_base)
-    except Exception as e:
-        msg = str(e).lower()
-        precisa_cookies = any(s in msg for s in (
-            "sign in to confirm", "not a bot", "confirm you",
-            "use --cookies", "cookies-from-browser", "authentication required",
-        ))
-        formato_indisponivel = any(s in msg for s in (
-            "requested format is not available", "no video formats", "no formats found",
-        ))
-
-        if formato_indisponivel:
-            fallbacks_fmt = [
-                f"bv*[height<={qual}]+ba/b[height<={qual}]/bv*+ba/b/best",
-                f"bestvideo[height<={qual}]+bestaudio/best[height<={qual}]/best",
-                "bv*+ba/b/best",
-                "best",
-            ]
-            resolvido = False
-            ultimo_erro = e
-            for ftry in fallbacks_fmt:
-                if ftry == fmt:
-                    continue
-                try:
-                    log("      Formato indisponível: tentando fallback de formato...")
-                    opts = dict(opcoes_base)
-                    opts["format"] = ftry
-                    path, info = _tentar(opts)
-                    resolvido = True
-                    break
-                except Exception as ef:
-                    ultimo_erro = ef
-                    continue
-            if not resolvido:
-                raise RuntimeError(
-                    "Nenhum formato de vídeo disponível para este link com as opções atuais.\n"
-                    "Tente: 1) atualizar yt-dlp (pip install -U yt-dlp), 2) mudar qualidade/codec.\n\n"
-                    f"Erro original: {ultimo_erro}"
-                ) from ultimo_erro
-            e = None
-
-        if e is not None and precisa_cookies:
-            # Sem cookies por escolha do usuário: tenta clients alternativos; se falhar, erro claro.
-            for clientes in (["mweb"], ["ios", "web"], ["android", "web"], ["tv_embedded", "web"]):
-                try:
-                    log(f"      YouTube bloqueou: tentando client alternativo ({','.join(clientes)})...")
-                    opts = dict(opcoes_base)
-                    ea = dict(opts.get("extractor_args") or {})
-                    yt = dict(ea.get("youtube") or {})
-                    yt["player_client"] = list(clientes)
-                    ea["youtube"] = yt
-                    opts["extractor_args"] = ea
-                    path, info = _tentar(opts)
-                    log(f"      ok com client alternativo ({','.join(clientes)})")
-                    e = None
-                    break
-                except Exception:
-                    continue
-            if e is not None:
-                raise RuntimeError(
-                    "O YouTube bloqueou este download (anti-bot/verificação). "
-                    "Tente novamente em instantes, atualize o yt-dlp (pip install -U yt-dlp) "
-                    "ou use um arquivo local/URL diferente. "
-                    f"Detalhe: {str(e).splitlines()[-1][:220]}"
-                ) from e
-        elif e is not None:
-            raise
+    with yt_dlp.YoutubeDL(opcoes) as ydl:
+        info = ydl.extract_info(url, download=True)
+        path = info.get("requested_downloads", [{}])[0].get("filepath") or ydl.prepare_filename(info)
 
     log(f"      salvo em: {path}")
     return path, info
