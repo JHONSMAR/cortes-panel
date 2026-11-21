@@ -82,7 +82,7 @@ python app.py
 python app.py --no-browser
 ```
 
-No Windows, você também pode usar o atalho `Painel.bat`.
+No Windows, você também pode usar o launcher `Abrir Cortes.vbs` (inicia o servidor em segundo plano, sem janela de console, e abre o painel no navegador). Se já estiver rodando, ele apenas abre a página.
 
 ### CLI (pipeline direto)
 
@@ -104,7 +104,7 @@ python cortar.py "E:\CORTES\vods\minha-live.mp4" --clips 5 --sem-legenda
 .
 ├─ app.py                  # Backend Flask + UI web (HTML/CSS/JS embutido) e orquestração do pipeline
 ├─ cortar.py               # Núcleo de download, áudio, transcrição, detecção, legendas e renderização
-├─ Painel.bat              # Atalho para iniciar o painel no Windows
+├─ Abrir Cortes.vbs        # Launcher do painel no Windows (inicia em segundo plano e abre o navegador)
 ├─ CANAL_VICEMSHORTS.md    # Notas/checklist específicas de canal (exemplo)
 ├─ requirements.txt        # Dependências Python
 ├─ .gitignore
