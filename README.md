@@ -2,7 +2,7 @@
 
 Painel web local para **encontrar, ajustar e exportar automaticamente os melhores momentos de lives** (YouTube ou arquivo local) em clipes verticais e horizontais — com detecção por picos de áudio, transcrição por IA e renderização via FFmpeg.
 
-> Pensado para criadores que querem transformar VODs longos em Shorts/Reels/TikTok sem editar tudo manualmente.
+> Funciona localmente em `http://127.0.0.1:8765`. YouTube pode bloquear downloads por anti-bot/IP; o app traz fallbacks e fluxo local.
 
 ---
 
@@ -102,19 +102,17 @@ python cortar.py "E:\CORTES\vods\minha-live.mp4" --clips 5 --sem-legenda
 
 ```text
 .
-├─ app.py                  # Backend Flask + UI web (HTML/CSS/JS embutido) e orquestração do pipeline
-├─ cortar.py               # Núcleo de download, áudio, transcrição, detecção, legendas e renderização
-├─ Abrir Cortes.vbs        # Launcher do painel no Windows (inicia em segundo plano e abre o navegador)
-├─ CANAL_VICEMSHORTS.md    # Notas/checklist específicas de canal (exemplo)
-├─ requirements.txt        # Dependências Python
+├─ app.py                  # Backend Flask + UI web (HTML/CSS/JS embutido)
+├─ cortar.py               # Download, áudio, transcrição, detecção, legendas, render, WARP/bgutil
+├─ Abrir Cortes.vbs        # Launcher Windows (segundo plano + abre navegador)
+├─ README.md
+├─ requirements.txt
+├─ LICENSE
 ├─ .gitignore
-└─ (gerados em runtime, ignorados no git)
-   ├─ vods/                # Vídeos baixados/originais
-   ├─ audio/               # Áudio extraído e transcrições (.wav/.json)
-   ├─ clips/               # Clipes exportados
-   ├─ preview/             # Prévias geradas pelo painel
-   ├─ thumbs/              # Thumbnails dos candidatos
-   └─ temp/                # Arquivos temporários
+└─ (runtime/local, ignorados)
+   ├─ vods/ audio/ clips/ preview/ thumbs/ temp/
+   ├─ tools/               # ferramentas locais opcionais (ex.: bgutil provider)
+   └─ *.log / estado.json / historico.json / cam.json
 ```
 
 ## Configuração e dados locais
@@ -127,30 +125,35 @@ python cortar.py "E:\CORTES\vods\minha-live.mp4" --clips 5 --sem-legenda
 
 > Esses arquivos/pastas são específicos do ambiente local e, por padrão, ficam fora do versionamento para manter o repositório limpo.
 
-## API (painel)
+## API local (resumo)
 
-O frontend se comunica com o backend Flask via endpoints locais (exemplos):
+- `GET /api/status` — progresso/estado
+- `POST /api/analisar` — inicia análise
+- `GET /api/candidatos` — candidatos do projeto
+- `POST /api/ajustar` / `POST /api/exportar` — edição/exportação
+- `POST /api/baixar` — download/rebaixar VOD
+- `GET /api/network-status` — status WARP + bgutil
+- `POST /api/warp/connect` / `POST /api/warp/disconnect` — controle opcional do Cloudflare WARP
+- `GET /api/arquivos` + endpoints de limpeza — gerenciamento de disco
+- `GET/POST /api/cam`, `POST /api/detectar-cam` — layout de cam
 
-- `GET /api/status` — status/progresso da tarefa atual
-- `POST /api/analisar` — inicia análise de uma fonte
-- `GET /api/candidatos` — lista candidatos do projeto atual
-- `POST /api/ajustar` — ajusta tempo/duração de um corte
-- `POST /api/exportar` — renderiza/exporta clipes selecionados
-- `POST /api/baixar` — baixa/rebaixa VOD
-- `GET /api/arquivos` — inventário de arquivos e uso de disco
-- `POST /api/apagar-item` / `POST /api/apagar-vod` / `POST /api/limpar-tudo` — limpeza/gerenciamento
-- `GET/POST /api/cam`, `POST /api/detectar-cam` — layout de câmera para shorts
+> API local para uso do próprio painel.
 
-> A API foi projetada para uso local pelo próprio painel.
+## YouTube / anti-bot / IP
 
-## Dicas e troubleshooting
+- **Bloqueio "Sign in to confirm you're not a bot"**: normalmente é verificação de PO Token/reputação de IP/sessão do YouTube, não bug do app. O Cortes usa yt-dlp com Node/EJS e client fallback.
+- **Cloudflare WARP (opcional)**: se `warp-cli` estiver instalado, o painel mostra um botão **WARP ON/OFF** e a API expõe `/api/network-status`, `/api/warp/connect`, `/api/warp/disconnect`. Conectar o WARP troca o IP de saída e pode destravar downloads; **não é garantido**.
+- **bgutil PO Token (opcional, avançado)**: o Cortes detecta automaticamente `bgutil-ytdlp-pot-provider` no mesmo Python e um provider HTTP em `BGUTIL_POT_PROVIDER_URL` (default `http://127.0.0.1:4416`). Pode ajudar, mas **não garante** bypass se o IP estiver flagged. `BGUTIL_POT_DISABLE=1` desabilita.
+- **Fallback garantido**: baixe o vídeo por outro método e cole o **caminho do arquivo local** no campo de fonte. A análise, detecção, legendas e exportação funcionam normalmente com arquivo local.
+- **Sem cookies no app**: o fluxo/UI de cookies foi removido por decisão do projeto.
 
-- **YouTube bloqueando download (anti-bot / "Sign in to confirm you're not a bot")**: isso geralmente é verificação de PO Token/reputação de IP do YouTube, não bug do app. O Cortes já usa yt-dlp com Node/EJS e client fallback. Atualize o `yt-dlp` (`python -m pip install -U yt-dlp`). Se falhar, baixe o vídeo por outro método e cole o **caminho do arquivo local** no campo de fonte — a análise/corte/exportação funciona normalmente.
-- **Suporte opcional a PO Token (sem cookies, avançado)**: o Cortes detecta automaticamente o plugin/provider `bgutil-ytdlp-pot-provider` quando disponível no mesmo Python. Instale o plugin (`python -m pip install -U bgutil-ytdlp-pot-provider`) e rode o provider HTTP (padrão `http://127.0.0.1:4416`) conforme a [documentação do bgutil](https://github.com/Brainicism/bgutil-ytdlp-pot-provider) e o [guia de PO Token do yt-dlp](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide). Use `BGUTIL_POT_PROVIDER_URL` para URL customizada ou `BGUTIL_POT_DISABLE=1` para desabilitar. Isso pode ajudar, mas **não garante** bypass se o IP estiver flagged.
-- **Transcrição lenta na CPU**: use modelo menor (`tiny`/`base`) ou configure CUDA para aceleração.
-- **FFmpeg não encontrado**: verifique instalação/PATH e a configuração de diretório do FFmpeg em `cortar.py`.
-- **Sem candidatos encontrados**: ajuste a sensibilidade no painel ou os parâmetros de detecção/corte.
-- **Arquivos grandes**: VODs, áudios e clipes ocupam bastante espaço; use a aba/modal de **Arquivos** para gerenciar e limpar.
+## Troubleshooting
+
+- **yt-dlp desatualizado**: `python -m pip install -U yt-dlp`.
+- **FFmpeg não encontrado**: verifique `ffmpeg`/`ffprobe` no PATH ou ajuste `_FFMPEG_DIR` em `cortar.py`.
+- **Transcrição lenta na CPU**: use modelo menor (`tiny`/`base`) ou configure CUDA/cuDNN compatíveis.
+- **Sem candidatos encontrados**: ajuste a sensibilidade ou parâmetros de detecção/corte.
+- **Arquivos grandes**: use a aba/modal **Arquivos** para limpar VODs/clipes/previews.
 
 ## Roadmap (ideias)
 
@@ -162,7 +165,7 @@ O frontend se comunica com o backend Flask via endpoints locais (exemplos):
 
 ## Licença
 
-Defina a licença do projeto antes de torná-lo público (ex.: MIT). Veja o arquivo `LICENSE` se presente.
+MIT. Veja `LICENSE`.
 
 ## Aviso
 

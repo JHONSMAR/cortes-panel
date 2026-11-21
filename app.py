@@ -287,6 +287,32 @@ def api_status():
                             n=len(PROJETO["candidatos"])))
 
 
+@app.route("/api/network-status")
+def api_network_status():
+    return jsonify({
+        "warp": N.warp_status(),
+        "bgutil": N._bgutil_pot_status(),
+    })
+
+
+@app.route("/api/warp/connect", methods=["POST"])
+def api_warp_connect():
+    if ESTADO["rodando"]:
+        return jsonify({"erro": "já tem coisa rodando, espera terminar"}), 409
+    r = N.warp_connect()
+    status = 200 if r.get("ok") else 500
+    return jsonify(r), status
+
+
+@app.route("/api/warp/disconnect", methods=["POST"])
+def api_warp_disconnect():
+    if ESTADO["rodando"]:
+        return jsonify({"erro": "já tem coisa rodando, espera terminar"}), 409
+    r = N.warp_disconnect()
+    status = 200 if r.get("ok") else 500
+    return jsonify(r), status
+
+
 @app.route("/api/analisar", methods=["POST"])
 def api_analisar():
     d = request.get_json(force=True)
@@ -1207,8 +1233,8 @@ HTML = r"""<!doctype html>
         <label>Link do YouTube ou arquivo local</label>
         <input type="text" id="fonte" placeholder="https://www.youtube.com/live/...">
       </div>
-      <!-- cookies removidos: download usa yt-dlp sem cookies do navegador -->
       <button id="btnAnalisar" onclick="analisar()">Analisar</button>
+      <button class="ghost" id="btnWarp" onclick="toggleWarp()" title="Cloudflare WARP (troca IP de saída)">WARP: ...</button>
     </div>
     <div class="row mt">
       <div class="f"><label>Trechos</label><input type="number" id="n" value="12" min="1" max="40"></div>
@@ -1237,6 +1263,7 @@ HTML = r"""<!doctype html>
       <div class="st"><span id="status">parado</span><span id="pct"></span></div>
       <div class="logmini" id="logmini"></div>
       <div class="err" id="erro"></div>
+      <div class="logmini" id="netstatus" style="margin-top:8px;display:none"></div>
     </div>
   </section>
 
@@ -1391,7 +1418,6 @@ async function analisar(){
     qualidade: +document.getElementById("qualidade").value,
     codec: document.getElementById("codec").value,
     sensibilidade: +document.getElementById("sens").value,
-    // cookies removido
   };
   document.getElementById("btnAnalisar").disabled = true;
   document.getElementById("erro").style.display = "none";
@@ -1399,6 +1425,48 @@ async function analisar(){
   const j = await r.json();
   if(j.erro){ toast(j.erro, "erro"); document.getElementById("btnAnalisar").disabled = false; return; }
   iniciarPolling();
+}
+
+let warpBusy = false;
+async function atualizarNetwork(){
+  try{
+    const r = await fetch("/api/network-status");
+    const j = await r.json();
+    const w = j.warp || {};
+    const b = j.bgutil || {};
+    const btn = document.getElementById("btnWarp");
+    if(btn){
+      if(!w.installed) { btn.textContent = "WARP: off"; btn.disabled = true; btn.title = "Cloudflare WARP não instalado"; }
+      else { btn.disabled = warpBusy; btn.textContent = w.connected ? "WARP: ON" : "WARP: OFF"; btn.title = "Clique para conectar/desconectar Cloudflare WARP (troca IP)"; }
+    }
+    const ns = document.getElementById("netstatus");
+    if(ns){
+      const parts = [];
+      parts.push("WARP: " + (w.installed ? (w.connected ? "conectado" : "desconectado") : "não instalado"));
+      parts.push("bgutil: " + (b.plugin ? (b.provider ? "ativo" : "plugin sem provider") : "não instalado"));
+      ns.style.display = "block";
+      ns.innerHTML = parts.map(p => "<div>" + p + "</div>").join("");
+    }
+  }catch(e){}
+}
+
+async function toggleWarp(){
+  if(warpBusy) return;
+  warpBusy = true;
+  const btn = document.getElementById("btnWarp");
+  if(btn) btn.disabled = true;
+  try{
+    const st = await (await fetch("/api/network-status")).json();
+    const connected = !!(st.warp && st.warp.connected);
+    const rota = connected ? "/api/warp/disconnect" : "/api/warp/connect";
+    if(btn) btn.textContent = connected ? "WARP..." : "WARP...";
+    const r = await fetch(rota, {method:"POST"});
+    const j = await r.json();
+    if(j.erro || j.ok === false) toast(j.erro || "falha no WARP", "erro");
+    else toast(connected ? "WARP desconectado" : "WARP conectado", "ok");
+  }catch(e){ toast("falha no WARP", "erro"); }
+  warpBusy = false;
+  atualizarNetwork();
 }
 
 const logLinhas = [];
@@ -1935,6 +2003,8 @@ async function detectarCam(){
 
 (async () => {
   try {
+    atualizarNetwork();
+    setInterval(atualizarNetwork, 15000);
     const st = await (await fetch("/api/status")).json();
     if(st && st.rodando){
       document.getElementById("prog").style.width = (st.pct||0) + "%";

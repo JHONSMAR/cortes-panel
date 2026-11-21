@@ -139,6 +139,68 @@ def hhmmss(t):
 # ------------------------------------------------------------------- download
 
 
+_WARP_CLI = r"C:\Program Files\Cloudflare\Cloudflare WARP\warp-cli.exe"
+
+
+def _warp_cli_path():
+    env = os.environ.get("WARP_CLI", "").strip()
+    if env and os.path.isfile(env):
+        return env
+    if os.path.isfile(_WARP_CLI):
+        return _WARP_CLI
+    from shutil import which
+    return which("warp-cli") or which("warp-cli.exe")
+
+
+def warp_status():
+    """Status do Cloudflare WARP (opcional). Usado como túnel de saída quando YouTube bloqueia por IP."""
+    cli = _warp_cli_path()
+    if not cli:
+        return {"installed": False, "connected": False, "status": "not_installed"}
+    try:
+        r = subprocess.run([cli, "status"], capture_output=True, text=True, timeout=15)
+        out = ((r.stdout or "") + "\n" + (r.stderr or "")).strip()
+        low = out.lower()
+        connected = "status update: connected" in low or "connected" == low
+        disconnected = "disconnected" in low
+        return {
+            "installed": True,
+            "connected": connected and not (disconnected and "connected" not in low.replace("disconnected", "")),
+            "status": "connected" if connected else ("disconnected" if disconnected else "unknown"),
+            "raw": out[-400:],
+        }
+    except Exception as e:
+        return {"installed": True, "connected": False, "status": "error", "error": str(e)}
+
+
+def warp_connect():
+    cli = _warp_cli_path()
+    if not cli:
+        return {"ok": False, "erro": "Cloudflare WARP não encontrado (warp-cli)."}
+    try:
+        subprocess.run([cli, "connect"], capture_output=True, text=True, timeout=20)
+        for _ in range(10):
+            st = warp_status()
+            if st.get("connected"):
+                return {"ok": True, "status": st}
+            time.sleep(1)
+        return {"ok": False, "erro": "WARP não conectou a tempo.", "status": warp_status()}
+    except Exception as e:
+        return {"ok": False, "erro": str(e)}
+
+
+def warp_disconnect():
+    cli = _warp_cli_path()
+    if not cli:
+        return {"ok": False, "erro": "Cloudflare WARP não encontrado (warp-cli)."}
+    try:
+        subprocess.run([cli, "disconnect"], capture_output=True, text=True, timeout=20)
+        time.sleep(2)
+        return {"ok": True, "status": warp_status()}
+    except Exception as e:
+        return {"ok": False, "erro": str(e)}
+
+
 def _bgutil_pot_status():
     """Detecta suporte opcional a PO Token via bgutil-ytdlp-pot-provider.
 
@@ -241,10 +303,14 @@ def baixar(url, qual=1080, codec="avc", nome=None):
         msg = str(e)
         if "Sign in to confirm" in msg or "not a bot" in msg.lower():
             hint = (
-                "YouTube bloqueou o download (anti-bot/PO token). "
+                "YouTube bloqueou o download (anti-bot/PO token/IP). "
                 "Sem cookies, tente: 1) usar o caminho de arquivo local no Cortes; "
-                "2) configurar bgutil-ytdlp-pot-provider (PO token opcional, sem garantir bypass de IP flagged)."
+                "2) conectar Cloudflare WARP/VPN para trocar IP e tentar de novo; "
+                "3) configurar bgutil-ytdlp-pot-provider (PO token opcional)."
             )
+            st = warp_status()
+            if st.get("installed"):
+                hint += " WARP: " + ("conectado" if st.get("connected") else "instalado, desconectado") + "."
             if pot["plugin"] and not pot["provider"]:
                 hint += f" Plugin bgutil detectado, mas provider HTTP não respondeu em {pot['base_url']}."
             elif not pot["plugin"]:

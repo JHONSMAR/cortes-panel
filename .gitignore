@@ -12,6 +12,7 @@ __pycache__/
 # Local state and logs
 *.log
 *.err
+*.out.log
 estado.json
 historico.json
 cam.json
@@ -43,12 +44,17 @@ dist/
 *.ass
 *.srt
 
-# Root debug text artifacts
+# Local tools / caches
+tools/
+
+# Debug text artifacts
 err.txt
 log.txt
+baixar.log
+server.err
+server.log
 
+# Cookies (never commit)
 cookies.txt
 *_cookies.txt
 www.youtube.com_cookies.txt
-
-cortes.log
