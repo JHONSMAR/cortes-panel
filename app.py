@@ -1500,6 +1500,7 @@ HTML = r"""<!doctype html>
     </div>
     <div class="topacts">
       <span class="chip" id="chip"><i></i><span id="chiptxt">parado</span></span>
+      <button class="ghost" onclick="abrirBiblioteca()">Biblioteca</button>
       <button class="ghost" onclick="listarVods()" title="Gerenciar vídeos, áudios e clipes no disco">Arquivos</button>
     </div>
   </header>
@@ -1674,25 +1675,47 @@ HTML = r"""<!doctype html>
   </section>
 </div>
 
-<div class="modal" id="modal">
-  <div class="mbox">
-    <h3>Arquivos no disco</h3>
-    <div class="hint">Cada item é apagado por si. Apagar o vídeo não apaga o áudio, os clipes ou a transcrição — só o que você mandar.</div>
-    <div class="vfav">
-      <input id="reurl" placeholder="link do YouTube pra baixar de novo">
-      <button class="ghost sm" onclick="baixarDeNovo()">baixar</button>
-    </div>
-    <div id="vfalta"></div>
-    <div class="disk">
-      <span id="dtotal">—</span>
-      <span id="dlivre">—</span>
-    </div>
-    <div id="mlist"></div>
-    <div style="margin-top:16px;text-align:right">
-      <button class="ghost" onclick="fecharModal()">fechar</button>
+  <div class="modal" id="modal">
+    <div class="mbox">
+      <h3>Arquivos no disco</h3>
+      <div class="hint">Cada item é apagado por si. Apagar o vídeo não apaga o áudio, os clipes ou a transcrição — só o que você mandar.</div>
+      <div class="vfav">
+        <input id="reurl" placeholder="link do YouTube pra baixar de novo">
+        <button class="ghost sm" onclick="baixarDeNovo()">baixar</button>
+      </div>
+      <div id="vfalta"></div>
+      <div class="disk">
+        <span id="dtotal">—</span>
+        <span id="dlivre">—</span>
+      </div>
+      <div id="mlist"></div>
+      <div style="margin-top:16px;text-align:right">
+        <button class="ghost" onclick="fecharModal()">fechar</button>
+      </div>
     </div>
   </div>
-</div>
+
+  <div class="modal" id="modalBib">
+    <div class="mbox" style="width:min(980px,100%)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
+        <div>
+          <h3 style="margin:0">Biblioteca</h3>
+          <div class="hint" style="margin:6px 0 0">VODs baixados e clipes/shorts já exportados. Reabra ou abra a pasta direto.</div>
+        </div>
+        <button class="ghost sm" onclick="fecharBiblioteca()">fechar</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div>
+          <div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">VODs baixados</div>
+          <div id="bibVods"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Clipes / Shorts feitos</div>
+          <div id="bibClips"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
 <div id="toasts"></div>
 
@@ -1895,6 +1918,14 @@ function iniciarPolling(){
 
 let durVideo = 0;
 
+const PRESETS_EMBUTIDOS = {
+  "Shorts Viral (9:16)": {n:12, duracao:60, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:6, formatos:["916"], modo:"cam", crf:18, legenda:true, audio_mode:"normalize", audio_track:0, audio_gain_db:0},
+  "Reels/TikTok (9:16)": {n:10, duracao:45, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:5, formatos:["916"], modo:"blur", crf:18, legenda:true, audio_mode:"normalize", audio_track:0, audio_gain_db:0},
+  "YouTube (16:9)": {n:8, duracao:90, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:4, formatos:["169"], modo:"crop", crf:20, legenda:false, audio_mode:"original", audio_track:0, audio_gain_db:0},
+  "Quadrado (1:1)": {n:10, duracao:45, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:5, formatos:["11"], modo:"blur", crf:20, legenda:true, audio_mode:"normalize", audio_track:0, audio_gain_db:0},
+  "Só áudio (MP3)": {n:1, duracao:0, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:5, formatos:["916"], modo:"blur", crf:23, legenda:false, audio_mode:"original", audio_track:0, audio_gain_db:0, _download_audio_only:true, _audio_format:"mp3", _audio_quality:"192"}
+};
+
 function configAtual(){
   return {
     n:+document.getElementById('n').value, duracao:+document.getElementById('duracao').value,
@@ -1911,20 +1942,32 @@ async function carregarPresets(){
     const j = await (await fetch('/api/presets')).json();
     const sel = document.getElementById('presetSelect'); const cur = sel.value;
     sel.innerHTML = '<option value="">— selecionar —</option>';
-    Object.keys(j.presets||{}).sort().forEach(nome=>{ const o=document.createElement('option'); o.value=nome; o.textContent=nome; sel.appendChild(o); });
+    const builtins = PRESETS_EMBUTIDOS;
+    const user = j.presets || {};
+    const og1 = document.createElement('optgroup'); og1.label='Embutidos';
+    Object.keys(builtins).forEach(nome=>{ const o=document.createElement('option'); o.value='builtin:'+nome; o.textContent=nome; og1.appendChild(o); });
+    sel.appendChild(og1);
+    const ukeys = Object.keys(user).sort();
+    if(ukeys.length){ const og2=document.createElement('optgroup'); og2.label='Meus presets'; ukeys.forEach(nome=>{ const o=document.createElement('option'); o.value='user:'+nome; o.textContent=nome; og2.appendChild(o); }); sel.appendChild(og2); }
     if(cur) sel.value = cur;
-    window.__presets = j.presets || {};
+    window.__presets = user;
   }catch(e){}
 }
 
 function aplicarPresetSelecionado(){
-  const nome = document.getElementById('presetSelect').value; const p = (window.__presets||{})[nome]; if(!p) return;
-  const set = (id,val)=>{const el=document.getElementById(id); if(el!=null && val!=null) el.value=val;};
+  const val = document.getElementById('presetSelect').value; if(!val) return;
+  let p = null;
+  if(val.startsWith('builtin:')) p = PRESETS_EMBUTIDOS[val.slice(8)];
+  else if(val.startsWith('user:')) p = (window.__presets||{})[val.slice(5)];
+  else p = (window.__presets||{})[val] || PRESETS_EMBUTIDOS[val];
+  if(!p) return;
+  const set = (id,v)=>{const el=document.getElementById(id); if(el!=null && v!=null) el.value=v;};
   set('n',p.n); set('duracao',p.duracao); set('modelo',p.modelo); set('idioma',p.idioma); set('qualidade',p.qualidade); set('codec',p.codec); set('sens',p.sensibilidade);
   if(p.sensibilidade!=null) document.getElementById('sensv').textContent=p.sensibilidade;
   if(Array.isArray(p.formatos)){ document.querySelectorAll('#fmtos .pill').forEach(el=>el.classList.toggle('on', p.formatos.includes(el.dataset.f))); }
   set('modo',p.modo); set('crf',p.crf); if(p.legenda!=null) document.getElementById('legenda').checked=!!p.legenda;
   set('audioMode',p.audio_mode); set('audioGainDb',p.audio_gain_db); if(p.audio_gain_db!=null) document.getElementById('audioGainV').textContent=p.audio_gain_db;
+  if(p._download_audio_only){ document.getElementById('audioOnly').checked=true; if(p._audio_format) document.getElementById('audioFormat').value=p._audio_format; if(p._audio_quality) document.getElementById('audioQuality').value=p._audio_quality; toggleAudioOnly(); }
   toggleAudioMode(); modoMudou(); atualizarSelInfo();
 }
 
@@ -1934,7 +1977,9 @@ async function salvarPreset(){
   const j = await r.json(); if(j.erro){toast(j.erro,'erro');return;} window.__presets=j.presets||{}; await carregarPresets(); document.getElementById('presetSelect').value=nome; toast('Preset salvo','ok');
 }
 async function excluirPreset(){
-  const nome = document.getElementById('presetSelect').value; if(!nome){toast('Selecione um preset','erro');return;}
+  const val = document.getElementById('presetSelect').value; if(!val){toast('Selecione um preset','erro');return;}
+  if(val.startsWith('builtin:')){ toast('Presets embutidos não podem ser excluídos','erro'); return; }
+  const nome = val.startsWith('user:') ? val.slice(5) : val;
   if(!await confirmar(`Excluir preset "${nome}"?`)) return;
   const r = await fetch('/api/presets/'+encodeURIComponent(nome),{method:'DELETE'}); const j=await r.json(); window.__presets=j.presets||{}; await carregarPresets(); toast('Preset excluído','ok');
 }
@@ -2357,6 +2402,52 @@ async function apagarItem(it, btn){
 
 function fecharModal(){
   document.getElementById("modal").classList.remove("on");
+}
+
+function abrirBiblioteca(){
+  document.getElementById("modalBib").classList.add("on");
+  renderBiblioteca();
+}
+function fecharBiblioteca(){
+  document.getElementById("modalBib").classList.remove("on");
+}
+
+async function renderBiblioteca(){
+  const vbox = document.getElementById("bibVods");
+  const cbox = document.getElementById("bibClips");
+  vbox.innerHTML = '<div class="empty">lendo...</div>';
+  cbox.innerHTML = '<div class="empty">lendo...</div>';
+  try{
+    const [arq, vods] = await Promise.all([
+      fetch('/api/arquivos').then(r=>r.json()),
+      fetch('/api/vods').then(r=>r.json()),
+    ]);
+    vbox.innerHTML = '';
+    (vods||[]).forEach(v=>{
+      const row = document.createElement('div'); row.className='vitem';
+      const rot = document.createElement('div'); rot.className='rot'; rot.textContent = v.nome;
+      const sz = document.createElement('div'); sz.className='sz'; sz.textContent = v.gb + ' GB';
+      const usar = document.createElement('button'); usar.className='ghost sm'; usar.textContent='usar';
+      usar.onclick = ()=>{ document.getElementById('fonte').value = v.caminho; fecharBiblioteca(); toast('VOD carregado no campo fonte','ok'); };
+      row.append(rot,sz,usar); vbox.appendChild(row);
+    });
+    if(!vbox.children.length) vbox.innerHTML='<div class="empty">Nenhum VOD baixado.</div>';
+
+    cbox.innerHTML = '';
+    (arq.grupos||[]).filter(g=>g.itens && g.itens.some(i=>i.tipo==='clipes')).forEach(g=>{
+      const clipItem = g.itens.find(i=>i.tipo==='clipes');
+      const row = document.createElement('div'); row.className='vitem';
+      const rot = document.createElement('div'); rot.className='rot'; rot.textContent = g.titulo;
+      const sz = document.createElement('div'); sz.className='sz'; sz.textContent = tam(g.bytes);
+      const abrir = document.createElement('button'); abrir.className='ghost sm'; abrir.textContent='abrir pasta';
+      abrir.onclick = async ()=>{ if(!clipItem) return; await fetch('/api/abrir-pasta',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pasta: clipItem.caminho})}); };
+      row.append(rot,sz,abrir); cbox.appendChild(row);
+    });
+    if(!cbox.children.length) cbox.innerHTML='<div class="empty">Nenhum clipe exportado ainda.</div>';
+  }catch(e){
+    vbox.innerHTML='<div class="empty">Erro ao carregar biblioteca.</div>';
+    cbox.innerHTML='';
+  }
 }
 
 document.querySelectorAll("#fmtos .pill").forEach(p=>{
