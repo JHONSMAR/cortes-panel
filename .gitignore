@@ -16,6 +16,7 @@ __pycache__/
 estado.json
 historico.json
 cam.json
+presets.json
 
 # Environments
 .venv/

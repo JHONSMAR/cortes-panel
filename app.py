@@ -40,7 +40,7 @@ FILA_EVENT = threading.Event()
 # ---- config da cam (layout de shorts) + marca d'agua
 CAM_ARQ = os.path.join(BASE, "cam.json")
 CAM_PADRAO = {"x": 0.018, "y": 0.011, "w": 0.168, "h": 0.333, "topo": 0.45,
-              "marca": True, "texto": "VICEMSHORTS"}
+              "marca": True, "texto": "SEU CANAL"}
 
 
 def _ler_cam():
@@ -68,7 +68,7 @@ def _marca():
     """Dict de marca d'agua pro render, ou None se desligada."""
     if not CAM.get("marca", True):
         return None
-    return {"texto": (CAM.get("texto") or "VICEMSHORTS").strip(),
+    return {"texto": (CAM.get("texto") or "SEU CANAL").strip(),
             "opac": float(CAM.get("opac", 0.85))}
 
 
