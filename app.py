@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 app.py - painel web para cortar lives.
 
@@ -164,7 +164,7 @@ def _set(pct=None, etapa=None, msg=None, **extra):
         if msg is not None:
             ESTADO["msg"] = msg
         ESTADO.update(extra)
-        # persiste projeto quando há candidatos (permite reabrir sem reanalisar)
+        # persiste projeto quando hÃ¡ candidatos (permite reabrir sem reanalisar)
         try:
             src = PROJETO.get("src")
             if src and PROJETO.get("candidatos") and not ESTADO.get("rodando"):
@@ -334,7 +334,7 @@ def api_network_status():
 @app.route("/api/warp/connect", methods=["POST"])
 def api_warp_connect():
     if ESTADO["rodando"]:
-        return jsonify({"erro": "já tem coisa rodando, espera terminar"}), 409
+        return jsonify({"erro": "jÃ¡ tem coisa rodando, espera terminar"}), 409
     r = N.warp_connect()
     status = 200 if r.get("ok") else 500
     return jsonify(r), status
@@ -343,7 +343,7 @@ def api_warp_connect():
 @app.route("/api/warp/disconnect", methods=["POST"])
 def api_warp_disconnect():
     if ESTADO["rodando"]:
-        return jsonify({"erro": "já tem coisa rodando, espera terminar"}), 409
+        return jsonify({"erro": "jÃ¡ tem coisa rodando, espera terminar"}), 409
     r = N.warp_disconnect()
     status = 200 if r.get("ok") else 500
     return jsonify(r), status
@@ -684,7 +684,7 @@ def api_audio_tracks():
     if not src:
         src = PROJETO.get("src") or ""
     if not src or not os.path.isfile(src):
-        return jsonify({"tracks": [], "erro": "arquivo não encontrado"})
+        return jsonify({"tracks": [], "erro": "arquivo nÃ£o encontrado"})
     try:
         return jsonify({"tracks": N.ffprobe_audio_tracks(src)})
     except Exception as e:
@@ -698,10 +698,10 @@ def api_presets():
     d = request.get_json(force=True)
     nome = (d.get("nome") or "").strip()[:60]
     if not nome:
-        return jsonify({"erro": "nome do preset obrigatório"}), 400
+        return jsonify({"erro": "nome do preset obrigatÃ³rio"}), 400
     cfg = d.get("config") or {}
     if not isinstance(cfg, dict):
-        return jsonify({"erro": "config inválida"}), 400
+        return jsonify({"erro": "config invÃ¡lida"}), 400
     presets = _ler_presets()
     presets[nome] = cfg
     _salvar_presets(presets)
@@ -745,7 +745,7 @@ def _fila_worker():
                 _fila_executar(item)
                 with FILA_LOCK:
                     item["status"] = "concluido"
-                    item["msg"] = "concluído"
+                    item["msg"] = "concluÃ­do"
             except Exception as e:
                 with FILA_LOCK:
                     item["status"] = "erro"
@@ -808,7 +808,7 @@ def _fila_executar(item):
         itens = sorted({int(i) for i in cfg.get("itens", list(range(total_cands))) if 0 <= int(i) < total_cands})
         fmtos = [f for f in cfg.get("formatos", ["916"]) if f in N.FORMATOS]
         if not itens or not fmtos:
-            raise RuntimeError("exportação sem itens/formatos")
+            raise RuntimeError("exportaÃ§Ã£o sem itens/formatos")
         _job_exportar(itens, fmtos, cfg.get("modo", "blur"), int(cfg.get("crf", 18)),
                       bool(cfg.get("legenda", True)), int(cfg.get("tamanho_fonte", 0)),
                       (cfg.get("audio_mode") or "original"), int(cfg.get("audio_track", 0)),
@@ -891,7 +891,7 @@ def _add_hist(url, titulo, arquivo):
 @app.route("/api/baixar", methods=["POST"])
 def api_baixar():
     if ESTADO["rodando"]:
-        return jsonify({"erro": "já tem coisa rodando, espera terminar"}), 409
+        return jsonify({"erro": "jÃ¡ tem coisa rodando, espera terminar"}), 409
     d = request.get_json(force=True)
     url = (d.get("url") or "").strip()
     if not url:
@@ -907,7 +907,7 @@ def api_baixar():
     def job():
         try:
             _set(rodando=True, erro=None, pct=2, etapa="download",
-                 msg=("baixando áudio " if audio_only else "baixando ") + url[-24:])
+                 msg=("baixando Ã¡udio " if audio_only else "baixando ") + url[-24:])
             src, info = N.baixar(url, qual, codec,
                                  audio_only=audio_only,
                                  audio_format=audio_format,
@@ -921,7 +921,7 @@ def api_baixar():
             if ("anti-bot/PO token" in msg or "Sign in to confirm" in msg) and "caminho do arquivo local" not in msg:
                 msg = (
                     f"{msg}\n"
-                    "Dica: baixe o vídeo por outro método e cole o caminho do arquivo local no campo de fonte."
+                    "Dica: baixe o vÃ­deo por outro mÃ©todo e cole o caminho do arquivo local no campo de fonte."
                 )
             _set(rodando=False, pct=0, etapa="erro", erro=f"falha no download: {msg}")
 
@@ -981,9 +981,9 @@ def api_arquivos():
             chaves[k] = nome
         raiz = os.path.splitext(nome)[0]
 
-        itens = [_item("vod|" + nome, "video", "vídeo", p)]
-        for tipo, arq, rot in (("audio", raiz + ".wav", "áudio"),
-                               ("transcricao", raiz + ".wav.json", "transcrição")):
+        itens = [_item("vod|" + nome, "video", "vÃ­deo", p)]
+        for tipo, arq, rot in (("audio", raiz + ".wav", "Ã¡udio"),
+                               ("transcricao", raiz + ".wav.json", "transcriÃ§Ã£o")):
             audio_ref.add(arq)
             itens.append(_item(f"{tipo}|{arq}", tipo, rot,
                                os.path.join(N.AUDIO, arq)))
@@ -1020,7 +1020,7 @@ def api_arquivos():
                 orf.append(_item("orfao|clipes|" + sub, "clipes", "clipes exportados", p))
 
     if orf:
-        grupos.append({"titulo": "sobras sem vídeo", "chave": None, "tamanho": "",
+        grupos.append({"titulo": "sobras sem vÃ­deo", "chave": None, "tamanho": "",
                        "bytes": sum(i["bytes"] for i in orf), "itens": orf})
 
     uso = shutil.disk_usage(BASE)
@@ -1269,222 +1269,157 @@ HTML = r"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Painel local para analisar lives, encontrar highlights e exportar clipes em formatos verticais e horizontais.">
 <meta name="theme-color" content="#0a0c11">
-<title>Cortes — Painel de Clipes</title>
+<title>Cortes â€” Painel de Clipes</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%236c5cff'/%3E%3Cstop offset='1' stop-color='%2322d3a6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%23111420'/%3E%3Cpath d='M20 18l26 14-26 14z' fill='url(%23g)'/%3E%3C/svg%3E">
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
   :root{
-    --bg:#0a0c11; --card:#111420; --card2:#171b26; --card3:#1f2432;
-    --line:#232939; --line2:#2f3648;
-    --txt:#e9ecf4; --dim:#868da4; --dim2:#5f6779;
-    --acc:#6c5cff; --acc2:#22d3a6; --danger:#ff5c78;
+    --bg:#07090f; --bg2:#0d111a; --card:#121826cc; --card-solid:#121826; --card2:#182033; --card3:#1e2940;
+    --line:#ffffff14; --line2:#ffffff24; --txt:#f5f7fb; --dim:#a7b1c7; --dim2:#748099;
+    --acc:#7c5cff; --acc2:#36d3b0; --warn:#ffd36a; --danger:#ff6b81;
+    --shadow:0 20px 60px #00000055; --radius:18px;
   }
   *{box-sizing:border-box}
-  ::selection{background:var(--acc);color:#fff}
-  body{margin:0;color:var(--txt);padding:34px 28px 70px;
-       background:radial-gradient(1000px 520px at 12% -12%, #191d33 0%, transparent 62%), var(--bg);
-       font:14.5px/1.55 "Inter","Segoe UI",system-ui,-apple-system,sans-serif;
-       -webkit-font-smoothing:antialiased}
-  .wrap{max-width:1240px;margin:0 auto}
+  html{scroll-behavior:smooth}
+  body{margin:0;color:var(--txt);font:14px/1.5 "Manrope",system-ui,-apple-system,sans-serif;
+    background:
+      radial-gradient(1200px 500px at 10% -10%, #7c5cff22, transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, #36d3b018, transparent 55%),
+      linear-gradient(180deg, #0a0d14 0%, #07090f 100%);
+    min-height:100vh}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.35;
+    background-image:linear-gradient(#ffffff05 1px,transparent 1px),linear-gradient(90deg,#ffffff05 1px,transparent 1px);
+    background-size:28px 28px;mask-image:radial-gradient(circle at center,black 35%,transparent 85%)}
+  .wrap{max-width:1380px;margin:0 auto;padding:28px 20px 64px;position:relative}
+  .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px;padding:18px 20px;
+    background:linear-gradient(180deg,#ffffff0d,transparent),var(--card);border:1px solid var(--line);border-radius:22px;backdrop-filter:blur(14px);box-shadow:var(--shadow)}
+  .brand{display:flex;gap:14px;align-items:center}
+  .logo{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px;
+    background:linear-gradient(135deg,var(--acc),#5a9bff 55%,var(--acc2));box-shadow:0 10px 30px #7c5cff55}
+  .brand h1{margin:0;font-size:28px;line-height:1;letter-spacing:-.03em;font-weight:800}
+  .sub{margin-top:6px;color:var(--dim);font-size:13px;max-width:760px}
+  .topacts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#ffffff08;border:1px solid var(--line);color:var(--dim);font-size:12px;font-weight:600}
+  .chip i{width:8px;height:8px;border-radius:50%;background:#748099;box-shadow:0 0 0 4px #74809922}
+  .chip.on{color:#dffbf2;border-color:#36d3b044;background:#36d3b012}
+  .chip.on i{background:var(--acc2);box-shadow:0 0 0 4px #36d3b022;animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.4}}
 
-  .top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;
-       padding-bottom:22px;margin-bottom:28px;border-bottom:1px solid var(--line)}
-  .brand{display:flex;align-items:flex-start;gap:14px}
-  .logo{width:38px;height:38px;border-radius:12px;flex-shrink:0;
-        background:linear-gradient(135deg,var(--acc),var(--acc2));
-        display:flex;align-items:center;justify-content:center;
-        box-shadow:0 8px 24px #6c5cff33}
-  .logo svg{width:18px;height:18px;fill:#fff;margin-left:2px}
-  h1{font-size:22px;margin:0;letter-spacing:-.5px;font-weight:700;line-height:1.1}
-  .sub{color:var(--dim);font-size:13px;margin-top:6px;max-width:700px}
-  .topacts{display:flex;gap:9px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+  .card{background:linear-gradient(180deg,#ffffff09,transparent 30%),var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px;margin-bottom:16px;backdrop-filter:blur(14px);box-shadow:0 8px 30px #00000035}
+  .chead{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .num{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;font-size:12px;font-weight:800;color:#ddd6ff;
+    background:#7c5cff20;border:1px solid #7c5cff44}
+  .chead h2{margin:0;font-size:16px;letter-spacing:-.01em;font-weight:750}
+  .count{color:var(--dim2);font-size:12px;margin-left:2px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}.mt{margin-top:12px}
+  .f{display:flex;flex-direction:column;gap:6px;min-width:150px;flex:1}
+  .f.grow{flex:2;min-width:260px}
+  label{font-size:11px;font-weight:700;color:#c4ccdb;letter-spacing:.04em;text-transform:uppercase}
+  input[type=text],input[type=number],select{width:100%;background:#0b1220;border:1px solid var(--line2);color:var(--txt);
+    border-radius:12px;padding:11px 12px;font:inherit;outline:none;transition:.18s}
+  input[type=text]:focus,input[type=number]:focus,select:focus{border-color:#7c5cff99;box-shadow:0 0 0 4px #7c5cff1f}
+  input[type=range]{width:100%;accent-color:var(--acc)}
+  .chk{display:flex;align-items:center;gap:8px;color:var(--dim);font-size:13px;font-weight:600;text-transform:none;letter-spacing:0}
+  .chk input{width:16px;height:16px;accent-color:var(--acc)}
 
-  .chip{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);
-        background:var(--card2);border:1px solid var(--line);border-radius:99px;
-        padding:6px 13px;white-space:nowrap}
-  .chip i{width:6px;height:6px;border-radius:50%;background:var(--dim2);flex-shrink:0}
-  .chip.on{color:var(--acc2);border-color:#1c4a3d;background:#0d2620}
-  .chip.on i{background:var(--acc2);animation:pulse 1.5s ease-in-out infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+  button{appearance:none;border:1px solid transparent;background:linear-gradient(135deg,var(--acc),#697eff);color:#fff;
+    padding:10px 14px;border-radius:12px;font:600 13px/1 Manrope,sans-serif;cursor:pointer;transition:.18s;white-space:nowrap}
+  button:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 8px 24px #7c5cff44}
+  button:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+  button.ghost{background:#ffffff06;color:#e6ebf5;border-color:var(--line2)}
+  button.ghost:hover{background:#ffffff10;box-shadow:none}
+  button.sm{padding:7px 10px;border-radius:10px;font-size:12px}
+  button.danger{background:#ff6b8118;color:#ff9aaa;border-color:#ff6b8144}
+  button.danger:hover{background:#ff6b8128;box-shadow:none}
 
-  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
-        padding:22px;margin-bottom:16px;box-shadow:0 1px 0 #ffffff07 inset}
-  .chead{display:flex;align-items:center;gap:10px;margin-bottom:18px}
-  .num{width:22px;height:22px;border-radius:50%;background:#6c5cff1f;color:var(--acc);
-       font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-  .card h2{font-size:12.5px;text-transform:uppercase;letter-spacing:1.1px;margin:0;font-weight:600}
-  .count{color:var(--dim);font-size:12px;font-weight:400;letter-spacing:0;text-transform:none}
+  .progwrap{margin-top:14px;padding:14px;border-radius:14px;background:#0b1220;border:1px solid var(--line)}
+  .bar{height:8px;background:#ffffff10;border-radius:999px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc),#59a0ff,var(--acc2));box-shadow:0 0 18px #7c5cff88;transition:width .25s}
+  .st{display:flex;justify-content:space-between;margin-top:10px;font-size:12px;color:var(--dim);font-weight:600}
+  .logmini{margin-top:8px;display:grid;gap:4px;font:11px/1.35 "JetBrains Mono",monospace;color:#93a0b8;max-height:74px;overflow:auto}
+  .err{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;background:#ff6b8114;border:1px solid #ff6b8144;color:#ffb3bf;font-size:12px;white-space:pre-wrap}
 
-  label{display:block;font-size:11px;color:var(--dim);margin-bottom:7px;
-        text-transform:uppercase;letter-spacing:.6px;font-weight:600}
-  input,select,button{font:inherit;color:var(--txt)}
-  input[type=text],input[type=number],select{
-    background:var(--card2);border:1px solid var(--line);border-radius:10px;
-    padding:10px 13px;width:100%;transition:border-color .15s,background .15s,box-shadow .15s}
-  input[type=text]:hover,input[type=number]:hover,select:hover{border-color:var(--line2)}
-  input:focus,select:focus{outline:none;border-color:var(--acc);background:#161a27;
-    box-shadow:0 0 0 3px #6c5cff22}
-  input::placeholder{color:var(--dim2)}
-  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;
-    background:var(--line2);border-radius:99px;outline:none;margin:13px 0 4px}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;
-    border-radius:50%;background:var(--acc);border:2px solid #0a0c11;cursor:pointer;
-    box-shadow:0 0 0 3px #6c5cff30}
+  .toolbar2{display:flex;justify-content:space-between;align-items:center;margin:-4px 0 12px;padding:10px 12px;border-radius:12px;background:#ffffff05;border:1px solid var(--line);color:var(--dim);font-size:12px}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+  .clip{background:#0d1422;border:1px solid var(--line);border-radius:16px;overflow:hidden;transition:.2s}
+  .clip:hover{border-color:#7c5cff55;transform:translateY(-2px);box-shadow:0 14px 30px #00000045}
+  .clip.sel{border-color:#7c5cffaa;box-shadow:0 0 0 1px #7c5cff55,0 14px 30px #7c5cff18}
+  .thumb{position:relative;aspect-ratio:16/9;background:#05080f;cursor:pointer}
+  .thumb img,.thumb video{width:100%;height:100%;object-fit:cover;display:block}
+  .badge{position:absolute;top:10px;left:10px;padding:4px 8px;border-radius:8px;font:700 11px/1 "JetBrains Mono",monospace;background:#00000088;border:1px solid #ffffff22;backdrop-filter:blur(6px)}
+  .badge.r{left:auto;right:10px;color:#c7ffe9}
+  .badge.b{top:auto;bottom:10px;left:10px;color:var(--warn)}
+  .play{position:absolute;inset:auto 10px 10px auto;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#00000088;border:1px solid #ffffff25;font-size:12px}
+  .body{padding:14px}
+  .meta{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}
+  .time{font:600 12px/1 "JetBrains Mono",monospace;color:#d6def0}
+  .durbadge{font-size:11px;padding:4px 8px;border-radius:999px;background:#ffffff08;color:var(--dim);border:1px solid var(--line)}
+  .durbadge.ok{color:#9ff0d8;background:#36d3b014;border-color:#36d3b044}
+  .txt{font-size:13px;color:#c2cada;min-height:38px;margin-bottom:10px}
+  .editor{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .nudge{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+  .nudge button{padding:6px 8px;font-size:11px;border-radius:8px;background:#ffffff08;color:#dce3f3;border:1px solid var(--line)}
+  .nudge button.acc{background:#7c5cff20;color:#ddd6ff;border-color:#7c5cff55}
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .acts{display:flex;gap:6px}
+  .empty{padding:28px;text-align:center;color:var(--dim);background:#ffffff03;border:1px dashed var(--line2);border-radius:14px}
 
-  button{background:var(--acc);border:1px solid transparent;border-radius:10px;
-         padding:10px 18px;font-weight:600;font-size:13.5px;cursor:pointer;
-         transition:filter .15s,transform .1s,background .15s;white-space:nowrap}
-  button:hover{filter:brightness(1.12)}
-  button:active{transform:translateY(1px)}
-  button:disabled{opacity:.38;cursor:not-allowed;transform:none;filter:none}
-  button.ghost{background:transparent;border:1px solid var(--line);color:var(--dim)}
-  button.ghost:hover{background:var(--card2);border-color:var(--line2);color:var(--txt)}
-  button.danger{background:#2a141c;border:1px solid #6a2333;color:#ff8fa3}
-  button.danger:hover{background:#371820;border-color:var(--danger)}
-  button.sm{padding:6px 11px;font-size:12px;border-radius:8px}
-
-  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
-  .row.mt{margin-top:14px}
-  .f{flex:1;min-width:130px}
-  .f.grow{flex:3;min-width:280px}
+  .pills{display:flex;flex-wrap:wrap;gap:8px}
+  .pill{padding:8px 12px;border-radius:999px;background:#ffffff06;border:1px solid var(--line2);color:var(--dim);font-weight:700;font-size:12px;cursor:pointer;user-select:none}
+  .pill.on{color:#efeaff;background:#7c5cff22;border-color:#7c5cff88}
+  .expbar{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+  .tot{font-size:13px;color:var(--dim);font-weight:600}
   .grow{flex:1}
+  .preset-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:14px;padding:12px;border-radius:14px;background:#0b1220;border:1px solid var(--line)}
+  .fila-box{margin-top:12px;padding:12px;border-radius:14px;background:#0b1220;border:1px solid var(--line)}
+  .fila-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px}
+  .fila-list{display:grid;gap:6px;max-height:170px;overflow:auto}
+  .fila-item{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:10px;background:#ffffff04;font-size:12px;color:var(--dim)}
+  .fila-item b{font-size:10px;padding:3px 6px;border-radius:6px;background:#ffffff10;color:#dfe7f7;text-transform:uppercase}
 
-  .progwrap{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
-  .bar{height:5px;background:var(--card3);border-radius:99px;overflow:hidden}
-  .bar>i{display:block;height:100%;width:0;border-radius:99px;
-         background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .5s ease}
-  .st{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--dim);
-      margin-top:9px;font-variant-numeric:tabular-nums}
-  #pct{color:var(--acc2);font-weight:600}
-  .logmini{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:11px;
-           line-height:1.7;color:var(--dim2);margin-top:10px;padding-left:10px;
-           border-left:2px solid var(--line);max-height:90px;overflow:hidden}
-  .logmini div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .logmini div:last-child{color:var(--dim)}
+  .camwrap{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;margin-top:12px}
+  .camsrc{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#000}
+  .camsrc img{width:100%;display:block}
+  #cambox{position:absolute;border:2px solid #7c5cff;box-shadow:0 0 0 9999px #00000066;cursor:move}
+  #cambox i{position:absolute;width:12px;height:12px;background:#7c5cff;border-radius:3px}
+  #cambox i[data-h="nw"]{top:-6px;left:-6px;cursor:nwse-resize} #cambox i[data-h="ne"]{top:-6px;right:-6px;cursor:nesw-resize}
+  #cambox i[data-h="sw"]{bottom:-6px;left:-6px;cursor:nesw-resize} #cambox i[data-h="se"]{bottom:-6px;right:-6px;cursor:nwse-resize}
+  .camres{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#0b1220}
+  .camres img{width:100%;display:block;aspect-ratio:9/16;object-fit:cover}
+  .camres .cap{padding:8px;font-size:12px;color:var(--dim);text-align:center}
+  .camctl{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px;padding:10px;border-radius:12px;background:#ffffff04;border:1px solid var(--line)}
 
-  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px}
-  .toolbar2{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:-6px 0 14px;color:var(--dim);font-size:12.5px;flex-wrap:wrap}
-  .toolbar2 .hint{color:var(--dim2);font-size:12px}
-  .clip{background:var(--card2);border:1px solid var(--line);border-radius:13px;overflow:hidden;
-        transition:border-color .15s,transform .15s,box-shadow .15s}
-  .clip:hover{border-color:var(--line2);transform:translateY(-2px);box-shadow:0 10px 26px #0007}
-  .clip.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc),0 8px 22px #6c5cff26}
-  .thumb{position:relative;background:#05060a;aspect-ratio:16/9;cursor:pointer;overflow:hidden}
-  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
-  .thumb video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
-  .badge{position:absolute;top:9px;left:9px;background:#000000b3;backdrop-filter:blur(8px);
-         padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;
-         font-variant-numeric:tabular-nums;border:1px solid #ffffff14}
-  .badge.r{left:auto;right:9px;color:var(--acc2)}
-  .badge.b{top:auto;bottom:9px;left:9px;color:#ffd36a}
-  .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-        font-size:30px;color:#fff;text-shadow:0 2px 14px #000;pointer-events:none;
-        opacity:0;transition:opacity .15s;background:#00000040}
-  .thumb:hover .play{opacity:1}
-  .body{padding:13px}
-  .meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
-  .meta .time{font-size:12px;color:var(--txt);font-variant-numeric:tabular-nums;font-weight:600}
-  .durbadge{font-size:11px;padding:3px 8px;border-radius:999px;background:#223042;color:#9ecbff;border:1px solid #2e425a}
-  .durbadge.ok{background:#123226;color:#7ff0c8;border-color:#1f5a40}
-  .txt{font-size:12.5px;color:var(--dim);height:48px;overflow:hidden;margin-bottom:10px;line-height:1.45}
-  .editor{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
-  .editor label{font-size:10px;margin-bottom:4px}
-  .editor input{padding:8px 10px;font-size:12.5px;font-variant-numeric:tabular-nums}
-  .nudge{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-  .nudge button{padding:5px 9px;font-size:11px;border-radius:7px}
-  .nudge .acc{background:#1d2740;border:1px solid #31476f;color:#b8d4ff}
-  .nudge .acc:hover{background:#243252}
-  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;
-        padding-top:10px;border-top:1px solid var(--line);gap:8px;flex-wrap:wrap}
-  .foot .acts{display:flex;gap:6px;align-items:center}
-  .chk{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);cursor:pointer;
-       text-transform:none;letter-spacing:0;font-weight:400;margin:0}
-  input[type=checkbox]{width:16px;height:16px;accent-color:var(--acc);cursor:pointer;margin:0}
-
-  .pills{display:flex;gap:8px;flex-wrap:wrap}
-  .pill{background:var(--card2);border:1px solid var(--line);border-radius:99px;
-        padding:7px 15px;font-size:12.5px;cursor:pointer;user-select:none;transition:.15s;color:var(--dim)}
-  .pill:hover{border-color:var(--line2);color:var(--txt)}
-  .pill.on{background:#6c5cff1f;border-color:var(--acc);color:#c3baff;font-weight:600}
-  .err{background:#2a1420;border:1px solid #6a2333;color:#ffc7d1;padding:12px;
-       border-radius:10px;font:12px/1.55 ui-monospace,Consolas,monospace;
-       white-space:pre-wrap;margin-top:12px;display:none}
-  .empty{color:var(--dim2);text-align:center;padding:46px 0;font-size:13px}
-  .expbar{display:flex;align-items:center;gap:10px;margin-top:18px;padding-top:16px;
-          border-top:1px solid var(--line);flex-wrap:wrap}
-  .fila-box{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#0f1420}
-  .fila-head{display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:8px}
-  .fila-list{display:flex;flex-direction:column;gap:6px;max-height:180px;overflow:auto}
-  .fila-item{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--dim);padding:6px 8px;border-radius:8px;background:#151b28;border:1px solid #ffffff10}
-  .fila-item b{color:var(--txt);font-size:11px;text-transform:uppercase}
-  .preset-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
-  .tot{color:var(--dim);font-size:12.5px;font-variant-numeric:tabular-nums}
-
-  .camwrap{display:flex;gap:16px;margin-top:14px;align-items:flex-start;flex-wrap:wrap}
-  .camsrc{position:relative;flex:1 1 360px;max-width:520px;border-radius:10px;
-          overflow:hidden;background:#000;line-height:0}
-  .camsrc img{width:100%;display:block;user-select:none;-webkit-user-drag:none}
-  #cambox{position:absolute;border:2px solid #7cd3ff;background:#7cd3ff22;cursor:move;
-          box-shadow:0 0 0 9999px #0009;touch-action:none}
-  #cambox i{position:absolute;width:13px;height:13px;background:#7cd3ff;border-radius:3px}
-  #cambox i[data-h="nw"]{left:-7px;top:-7px;cursor:nwse-resize}
-  #cambox i[data-h="ne"]{right:-7px;top:-7px;cursor:nesw-resize}
-  #cambox i[data-h="sw"]{left:-7px;bottom:-7px;cursor:nesw-resize}
-  #cambox i[data-h="se"]{right:-7px;bottom:-7px;cursor:nwse-resize}
-  .camres{flex:0 0 168px}
-  .camres img{width:168px;border-radius:9px;display:block;border:1px solid var(--line)}
-  .camres .cap{color:var(--dim2);font-size:11px;margin-top:7px;text-align:center}
-  .camctl{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:13px;
-          font-size:12px;color:var(--dim)}
-  .camctl input[type=range]{width:130px}
-  .camctl input[type=text]{padding:6px 9px;font-size:12px;width:150px}
-
-  .modal{position:fixed;inset:0;background:#000000c4;backdrop-filter:blur(6px);
-         display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+  .modal{position:fixed;inset:0;background:#05070dcc;backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:20px;z-index:100}
   .modal.on{display:flex}
-  .mbox{background:var(--card);border:1px solid var(--line);border-radius:16px;
-        padding:22px;width:min(720px,100%);max-height:84vh;overflow:auto;
-        box-shadow:0 24px 60px #000a}
-  .mbox h3{margin:0 0 5px;font-size:16px;font-weight:650}
-  .mbox .hint{color:var(--dim);font-size:12px;margin-bottom:16px;line-height:1.5}
-  button.danger{background:#3a1620;border:1px solid var(--danger);color:#ff8fa3}
-  button.sm{padding:6px 11px;font-size:12px}
-  .vgroup{border:1px solid var(--line);border-radius:11px;margin-bottom:10px;overflow:hidden}
-  .vhead{display:flex;justify-content:space-between;gap:10px;align-items:center;
-         padding:11px 13px;background:var(--card3);font-size:12.5px}
-  .vhead b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .vhead .sz{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:12px}
-  .vitem{display:flex;align-items:center;gap:10px;padding:8px 13px;
-         border-top:1px solid var(--line);font-size:12px}
-  .vitem .rot{flex:1;color:var(--dim)}
-  .vitem .sz{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
-  .disk{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);
-        margin:12px 0;padding-bottom:12px;border-bottom:1px solid var(--line)}
-  .vfav{display:flex;gap:8px;padding:12px 13px;border-bottom:1px solid var(--line);
-        background:var(--card2);align-items:center}
-  .vfav input{flex:1;background:var(--card);border:1px solid var(--line);border-radius:8px;
-              color:var(--txt);font:inherit;font-size:12px;padding:8px 11px;min-width:0}
-  .vfav input:focus{border-color:var(--acc)}
-  .vfalta{display:flex;align-items:center;justify-content:space-between;gap:10px;
-          padding:9px 13px;border-bottom:1px solid var(--line);font-size:12px;color:var(--dim)}
-  #toasts{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;
-          gap:8px;z-index:80;max-width:350px}
-  .toast{background:#1a1f2e;border:1px solid var(--line2);border-left:3px solid var(--acc);
-         border-radius:10px;padding:11px 15px;font-size:13px;box-shadow:0 10px 28px #0008;
-         animation:tin .18s ease-out;transition:opacity .25s}
-  .toast.erro{border-left-color:var(--danger);background:#241820}
-  .toast.ok{border-left-color:var(--acc2)}
-  @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-  .conf{position:fixed;inset:0;background:#000000c4;backdrop-filter:blur(6px);
-        display:none;align-items:center;justify-content:center;z-index:90;padding:20px}
+  .mbox{width:min(860px,100%);max-height:min(82vh,860px);overflow:auto;padding:20px;border-radius:20px;background:#111827;border:1px solid var(--line2);box-shadow:var(--shadow)}
+  .mbox h3{margin:0 0 4px;font-size:22px;letter-spacing:-.02em}
+  .hint{color:var(--dim);font-size:13px;margin-bottom:12px}
+  .vfav{display:flex;gap:8px;margin-bottom:10px}
+  .disk{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;margin:10px 0;border-radius:12px;background:#ffffff05;color:var(--dim);font-size:12px}
+  .vgroup{margin-bottom:10px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .vhead{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;background:#ffffff06;font-size:13px}
+  .vhead b{font-size:13px}
+  .vitem{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--line);font-size:12px}
+  .vitem .rot{flex:1;color:#d9e1f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .vitem .sz{color:var(--dim2);font-family:"JetBrains Mono",monospace;font-size:11px}
+  .vfalta{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:12px;color:var(--dim)}
+
+  #toasts{position:fixed;right:18px;bottom:18px;display:grid;gap:8px;z-index:200}
+  .toast{padding:10px 12px;border-radius:12px;background:#182033;color:#eef3ff;border:1px solid var(--line2);box-shadow:var(--shadow);font-size:13px}
+  .toast.ok{border-color:#36d3b055}.toast.erro{border-color:#ff6b8155;color:#ffd8de}
+  .conf{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#00000099;z-index:210;padding:20px}
   .conf.on{display:flex}
-  .confbox{background:var(--card);border:1px solid var(--line);border-radius:14px;
-           padding:22px;max-width:420px;width:100%;box-shadow:0 24px 60px #000a}
-  .confbox p{margin:0 0 18px;font-size:14px;line-height:1.55;white-space:pre-wrap}
-  .confbox .acts{display:flex;gap:8px;justify-content:flex-end}
-  @media(max-width:640px){
-    body{padding:20px 16px 50px}
-    .top{flex-direction:column;align-items:stretch}
-    .card{padding:17px}
+  .confbox{width:min(480px,100%);padding:18px;border-radius:16px;background:#121826;border:1px solid var(--line2);box-shadow:var(--shadow)}
+  .confbox p{margin:0 0 14px;color:#dce4f4}
+  .confbox .acts{display:flex;justify-content:flex-end;gap:8px}
+
+  @media (max-width:980px){.camwrap{grid-template-columns:1fr}.camres{max-width:280px}}
+  @media (max-width:720px){
+    .wrap{padding:14px 12px 48px}.top{padding:16px}.brand h1{font-size:22px}
+    .topacts{justify-content:flex-start}.card{padding:14px;border-radius:16px}
+    #grid{grid-template-columns:1fr}.f{min-width:120px}.expbar{flex-wrap:wrap}
+    .mbox{padding:14px}#toasts{left:12px;right:12px}
   }
 </style>
 </head>
@@ -1495,13 +1430,13 @@ HTML = r"""<!doctype html>
       <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></svg></div>
       <div>
         <h1>Cortes</h1>
-        <div class="sub">Encontre os melhores momentos da live, ajuste os cortes com precisão e exporte clipes prontos para Shorts, Reels e YouTube.</div>
+        <div class="sub">Encontre os melhores momentos da live, ajuste os cortes com precisÃ£o e exporte clipes prontos para Shorts, Reels e YouTube.</div>
       </div>
     </div>
     <div class="topacts">
       <span class="chip" id="chip"><i></i><span id="chiptxt">parado</span></span>
       <button class="ghost" onclick="abrirBiblioteca()">Biblioteca</button>
-      <button class="ghost" onclick="listarVods()" title="Gerenciar vídeos, áudios e clipes no disco">Arquivos</button>
+      <button class="ghost" onclick="listarVods()" title="Gerenciar vÃ­deos, Ã¡udios e clipes no disco">Arquivos</button>
     </div>
   </header>
 
@@ -1513,17 +1448,17 @@ HTML = r"""<!doctype html>
         <input type="text" id="fonte" placeholder="https://www.youtube.com/live/...">
       </div>
       <button id="btnAnalisar" onclick="analisar()">Analisar</button>
-      <button class="ghost" id="btnWarp" onclick="toggleWarp()" title="Cloudflare WARP (troca IP de saída)">WARP: ...</button>
+      <button class="ghost" id="btnWarp" onclick="toggleWarp()" title="Cloudflare WARP (troca IP de saÃ­da)">WARP: ...</button>
     </div>
     <div class="row mt">
       <div class="f"><label>Trechos</label><input type="number" id="n" value="12" min="1" max="40"></div>
-      <div class="f"><label>Duração</label>
+      <div class="f"><label>DuraÃ§Ã£o</label>
         <select id="duracao">
           <option value="60" selected>60s (exato)</option>
           <option value="45">45s</option>
           <option value="30">30s</option>
           <option value="90">90s</option>
-          <option value="0">automática</option>
+          <option value="0">automÃ¡tica</option>
         </select></div>
       <div class="f"><label>Modelo</label>
         <select id="modelo"><option value="tiny">tiny</option>
@@ -1531,10 +1466,10 @@ HTML = r"""<!doctype html>
         <option value="medium">medium</option></select></div>
       <div class="f"><label>Idioma</label>
         <select id="idioma">
-          <option value="pt" selected>Português (BR)</option>
+          <option value="pt" selected>PortuguÃªs (BR)</option>
           <option value="en">English</option>
-          <option value="fr">Français</option>
-          <option value="es">Español</option>
+          <option value="fr">FranÃ§ais</option>
+          <option value="es">EspaÃ±ol</option>
           <option value="auto">Auto</option>
         </select></div>
       <div class="f"><label>Qualidade</label>
@@ -1548,16 +1483,16 @@ HTML = r"""<!doctype html>
     <div class="row mt">
       <div class="f">
         <label>&nbsp;</label>
-        <label class="chk" style="height:41px"><input type="checkbox" id="audioOnly" onchange="toggleAudioOnly()"> só áudio</label>
+        <label class="chk" style="height:41px"><input type="checkbox" id="audioOnly" onchange="toggleAudioOnly()"> sÃ³ Ã¡udio</label>
       </div>
-      <div class="f"><label>Formato áudio</label>
+      <div class="f"><label>Formato Ã¡udio</label>
         <select id="audioFormat">
           <option value="mp3" selected>MP3</option>
           <option value="m4a">M4A</option>
           <option value="opus">Opus</option>
           <option value="wav">WAV</option>
         </select></div>
-      <div class="f"><label>Qualidade áudio</label>
+      <div class="f"><label>Qualidade Ã¡udio</label>
         <select id="audioQuality">
           <option value="128">128 kbps</option>
           <option value="192" selected>192 kbps</option>
@@ -1587,11 +1522,11 @@ HTML = r"""<!doctype html>
     <div class="toolbar2">
       <span id="selresumo" class="tot"></span>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <span class="hint">Edite início/fim ou use os botões de ajuste, depois salve. A prévia recarrega após salvar.</span>
+        <span class="hint">Edite inÃ­cio/fim ou use os botÃµes de ajuste, depois salve. A prÃ©via recarrega apÃ³s salvar.</span>
         <button class="ghost sm" onclick="salvarTodosAjustes()">salvar todos</button>
       </div>
     </div>
-    <div id="grid"><div class="empty"><strong style="display:block;color:var(--txt);font-size:14px;margin-bottom:6px">Nenhum trecho analisado ainda</strong>Cole um link do YouTube ou caminho local, ajuste os parâmetros e clique em <b>Analisar</b> para gerar candidatos automaticamente.</div></div>
+    <div id="grid"><div class="empty"><strong style="display:block;color:var(--txt);font-size:14px;margin-bottom:6px">Nenhum trecho analisado ainda</strong>Cole um link do YouTube ou caminho local, ajuste os parÃ¢metros e clique em <b>Analisar</b> para gerar candidatos automaticamente.</div></div>
   </section>
 
   <section class="card">
@@ -1619,17 +1554,17 @@ HTML = r"""<!doctype html>
       </div>
     </div>
     <div class="row mt">
-      <div class="f"><label>Áudio do clipe</label>
+      <div class="f"><label>Ãudio do clipe</label>
         <select id="audioMode" onchange="toggleAudioMode()">
           <option value="original" selected>Original</option>
           <option value="normalize">Normalizar</option>
           <option value="gain">Ajustar volume</option>
-          <option value="mute">Sem áudio</option>
+          <option value="mute">Sem Ã¡udio</option>
         </select></div>
       <div class="f" id="audioGainWrap" style="display:none"><label>Ganho (dB) <span id="audioGainV" style="color:var(--acc)">0</span></label>
         <input type="range" id="audioGainDb" min="-18" max="18" value="0" oninput="document.getElementById('audioGainV').textContent=this.value"></div>
-      <div class="f grow"><label>Faixa de áudio</label>
-        <select id="audioTrack"><option value="0">Faixa 1 (padrão)</option></select></div>
+      <div class="f grow"><label>Faixa de Ã¡udio</label>
+        <select id="audioTrack"><option value="0">Faixa 1 (padrÃ£o)</option></select></div>
     </div>
     <div id="campanel" style="display:none">
       <div class="camwrap">
@@ -1645,9 +1580,9 @@ HTML = r"""<!doctype html>
         </div>
       </div>
       <div class="camctl">
-        <button class="ghost sm" onclick="detectarCam()">detectar automático</button>
+        <button class="ghost sm" onclick="detectarCam()">detectar automÃ¡tico</button>
         <label class="chk"><input type="checkbox" id="camMarca" checked
-          onchange="camSalvar()"> marca d'água</label>
+          onchange="camSalvar()"> marca d'Ã¡gua</label>
         <input type="text" id="camTexto" value="VICEMSHORTS" onchange="camSalvar()">
         <label class="chk">cam = <b id="camTopoV" style="color:var(--acc)">45</b>%</label>
         <input type="range" id="camTopo" min="25" max="65" value="45"
@@ -1656,20 +1591,20 @@ HTML = r"""<!doctype html>
       </div>
     </div>
     <div class="preset-row">
-      <div class="f" style="min-width:220px"><label>Preset</label><select id="presetSelect" onchange="aplicarPresetSelecionado()"><option value="">— selecionar —</option></select></div>
+      <div class="f" style="min-width:220px"><label>Preset</label><select id="presetSelect" onchange="aplicarPresetSelecionado()"><option value="">â€” selecionar â€”</option></select></div>
       <button class="ghost sm" onclick="salvarPreset()">Salvar preset</button>
       <button class="ghost sm" onclick="excluirPreset()">Excluir preset</button>
     </div>
     <div class="expbar">
       <span class="tot" id="selinfo"></span>
       <span class="grow"></span>
-      <button class="ghost" onclick="adicionarFilaExportar()">+ fila exportação</button>
+      <button class="ghost" onclick="adicionarFilaExportar()">+ fila exportaÃ§Ã£o</button>
       <button class="ghost" onclick="abrirPasta()">Abrir pasta</button>
       <button class="ghost danger" onclick="sairApp()">Sair</button>
       <button id="btnExport" onclick="exportar()" disabled>Exportar</button>
     </div>
     <div class="fila-box">
-      <div class="fila-head"><div><b style="font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim)">Fila</b> <span id="filaStatus" style="font-size:12px;color:var(--dim2)"></span></div><div style="display:flex;gap:8px"><button class="ghost sm" onclick="adicionarFilaAnalise()">+ fila análise</button><button class="ghost sm" onclick="limparFila()">Limpar</button></div></div>
+      <div class="fila-head"><div><b style="font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim)">Fila</b> <span id="filaStatus" style="font-size:12px;color:var(--dim2)"></span></div><div style="display:flex;gap:8px"><button class="ghost sm" onclick="adicionarFilaAnalise()">+ fila anÃ¡lise</button><button class="ghost sm" onclick="limparFila()">Limpar</button></div></div>
       <div class="fila-list" id="filaList"><div class="fila-item">Fila vazia</div></div>
     </div>
   </section>
@@ -1678,15 +1613,15 @@ HTML = r"""<!doctype html>
   <div class="modal" id="modal">
     <div class="mbox">
       <h3>Arquivos no disco</h3>
-      <div class="hint">Cada item é apagado por si. Apagar o vídeo não apaga o áudio, os clipes ou a transcrição — só o que você mandar.</div>
+      <div class="hint">Cada item Ã© apagado por si. Apagar o vÃ­deo nÃ£o apaga o Ã¡udio, os clipes ou a transcriÃ§Ã£o â€” sÃ³ o que vocÃª mandar.</div>
       <div class="vfav">
         <input id="reurl" placeholder="link do YouTube pra baixar de novo">
         <button class="ghost sm" onclick="baixarDeNovo()">baixar</button>
       </div>
       <div id="vfalta"></div>
       <div class="disk">
-        <span id="dtotal">—</span>
-        <span id="dlivre">—</span>
+        <span id="dtotal">â€”</span>
+        <span id="dlivre">â€”</span>
       </div>
       <div id="mlist"></div>
       <div style="margin-top:16px;text-align:right">
@@ -1700,7 +1635,7 @@ HTML = r"""<!doctype html>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
         <div>
           <h3 style="margin:0">Biblioteca</h3>
-          <div class="hint" style="margin:6px 0 0">VODs baixados e clipes/shorts já exportados. Reabra ou abra a pasta direto.</div>
+          <div class="hint" style="margin:6px 0 0">VODs baixados e clipes/shorts jÃ¡ exportados. Reabra ou abra a pasta direto.</div>
         </div>
         <button class="ghost sm" onclick="fecharBiblioteca()">fechar</button>
       </div>
@@ -1769,7 +1704,7 @@ async function carregarFaixasAudio(){
     const tracks = j.tracks || [];
     sel.innerHTML = "";
     if(!tracks.length){
-      sel.innerHTML = '<option value="0">Faixa 1 (padrão)</option>';
+      sel.innerHTML = '<option value="0">Faixa 1 (padrÃ£o)</option>';
       return;
     }
     tracks.forEach((t, idx) => {
@@ -1845,14 +1780,14 @@ async function atualizarNetwork(){
     const b = j.bgutil || {};
     const btn = document.getElementById("btnWarp");
     if(btn){
-      if(!w.installed) { btn.textContent = "WARP: off"; btn.disabled = true; btn.title = "Cloudflare WARP não instalado"; }
+      if(!w.installed) { btn.textContent = "WARP: off"; btn.disabled = true; btn.title = "Cloudflare WARP nÃ£o instalado"; }
       else { btn.disabled = warpBusy; btn.textContent = w.connected ? "WARP: ON" : "WARP: OFF"; btn.title = "Clique para conectar/desconectar Cloudflare WARP (troca IP)"; }
     }
     const ns = document.getElementById("netstatus");
     if(ns){
       const parts = [];
-      parts.push("WARP: " + (w.installed ? (w.connected ? "conectado" : "desconectado") : "não instalado"));
-      parts.push("bgutil: " + (b.plugin ? (b.provider ? "ativo" : "plugin sem provider") : "não instalado"));
+      parts.push("WARP: " + (w.installed ? (w.connected ? "conectado" : "desconectado") : "nÃ£o instalado"));
+      parts.push("bgutil: " + (b.plugin ? (b.provider ? "ativo" : "plugin sem provider") : "nÃ£o instalado"));
       ns.style.display = "block";
       ns.innerHTML = parts.map(p => "<div>" + p + "</div>").join("");
     }
@@ -1923,7 +1858,7 @@ const PRESETS_EMBUTIDOS = {
   "Reels/TikTok (9:16)": {n:10, duracao:45, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:5, formatos:["916"], modo:"blur", crf:18, legenda:true, audio_mode:"normalize", audio_track:0, audio_gain_db:0},
   "YouTube (16:9)": {n:8, duracao:90, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:4, formatos:["169"], modo:"crop", crf:20, legenda:false, audio_mode:"original", audio_track:0, audio_gain_db:0},
   "Quadrado (1:1)": {n:10, duracao:45, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:5, formatos:["11"], modo:"blur", crf:20, legenda:true, audio_mode:"normalize", audio_track:0, audio_gain_db:0},
-  "Só áudio (MP3)": {n:1, duracao:0, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:5, formatos:["916"], modo:"blur", crf:23, legenda:false, audio_mode:"original", audio_track:0, audio_gain_db:0, _download_audio_only:true, _audio_format:"mp3", _audio_quality:"192"}
+  "SÃ³ Ã¡udio (MP3)": {n:1, duracao:0, modelo:"small", idioma:"pt", qualidade:1080, codec:"avc", sensibilidade:5, formatos:["916"], modo:"blur", crf:23, legenda:false, audio_mode:"original", audio_track:0, audio_gain_db:0, _download_audio_only:true, _audio_format:"mp3", _audio_quality:"192"}
 };
 
 function configAtual(){
@@ -1941,7 +1876,7 @@ async function carregarPresets(){
   try{
     const j = await (await fetch('/api/presets')).json();
     const sel = document.getElementById('presetSelect'); const cur = sel.value;
-    sel.innerHTML = '<option value="">— selecionar —</option>';
+    sel.innerHTML = '<option value="">â€” selecionar â€”</option>';
     const builtins = PRESETS_EMBUTIDOS;
     const user = j.presets || {};
     const og1 = document.createElement('optgroup'); og1.label='Embutidos';
@@ -1978,10 +1913,10 @@ async function salvarPreset(){
 }
 async function excluirPreset(){
   const val = document.getElementById('presetSelect').value; if(!val){toast('Selecione um preset','erro');return;}
-  if(val.startsWith('builtin:')){ toast('Presets embutidos não podem ser excluídos','erro'); return; }
+  if(val.startsWith('builtin:')){ toast('Presets embutidos nÃ£o podem ser excluÃ­dos','erro'); return; }
   const nome = val.startsWith('user:') ? val.slice(5) : val;
   if(!await confirmar(`Excluir preset "${nome}"?`)) return;
-  const r = await fetch('/api/presets/'+encodeURIComponent(nome),{method:'DELETE'}); const j=await r.json(); window.__presets=j.presets||{}; await carregarPresets(); toast('Preset excluído','ok');
+  const r = await fetch('/api/presets/'+encodeURIComponent(nome),{method:'DELETE'}); const j=await r.json(); window.__presets=j.presets||{}; await carregarPresets(); toast('Preset excluÃ­do','ok');
 }
 
 async function atualizarFila(){
@@ -1989,7 +1924,7 @@ async function atualizarFila(){
     const j = await (await fetch('/api/fila')).json();
     const list = document.getElementById('filaList');
     const itens = j.itens || [];
-    document.getElementById('filaStatus').textContent = j.ativa ? ` • ativa (${itens.filter(i=>i.status!=='concluido').length} pendente/rodando)` : '';
+    document.getElementById('filaStatus').textContent = j.ativa ? ` â€¢ ativa (${itens.filter(i=>i.status!=='concluido').length} pendente/rodando)` : '';
     if(!itens.length){ list.innerHTML='<div class="fila-item">Fila vazia</div>'; return; }
     list.innerHTML = itens.slice(-20).map(i=>`<div class="fila-item"><b>${i.status}</b><span>${i.tipo}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(i.msg||'').replace(/</g,'&lt;')}</span></div>`).join('');
   }catch(e){}
@@ -1999,13 +1934,13 @@ async function adicionarFilaAnalise(){
   const fonte = document.getElementById('fonte').value.trim(); if(!fonte){toast('Cole fonte para enfileirar','erro');return;}
   const cfg = {...configAtual(), fonte};
   const r = await fetch('/api/fila',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itens:[{tipo:'analisar',config:cfg}]})});
-  const j = await r.json(); if(j.erro){toast(j.erro,'erro');return;} toast('Análise adicionada à fila','ok'); atualizarFila();
+  const j = await r.json(); if(j.erro){toast(j.erro,'erro');return;} toast('AnÃ¡lise adicionada Ã  fila','ok'); atualizarFila();
 }
 async function adicionarFilaExportar(){
   const ids=[...selecionados]; if(!ids.length){toast('Selecione trechos','erro');return;}
   const cfg = {...configAtual(), itens:ids};
   const r = await fetch('/api/fila',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itens:[{tipo:'exportar',config:cfg}]})});
-  const j = await r.json(); if(j.erro){toast(j.erro,'erro');return;} toast('Exportação adicionada à fila','ok'); atualizarFila();
+  const j = await r.json(); if(j.erro){toast(j.erro,'erro');return;} toast('ExportaÃ§Ã£o adicionada Ã  fila','ok'); atualizarFila();
 }
 async function limparFila(){ await fetch('/api/fila/limpar',{method:'POST'}); atualizarFila(); }
 
@@ -2035,21 +1970,21 @@ function render(){
     el.innerHTML = `
       <div class="thumb" onclick="ver(${c.id}, this)">
         <img src="/thumb/${chave}/${c.id}" loading="lazy">
-        <div class="badge">${fmtT(c.inicio)} → ${fmtT(c.fim)}</div>
+        <div class="badge">${fmtT(c.inicio)} â†’ ${fmtT(c.fim)}</div>
         ${c.score ? `<div class="badge r">${Math.round(c.score)}</div>` : ""}
         <div class="badge b" data-role="dur">${(+c.dur).toFixed(1)}s</div>
         <div class="play">&#9654;</div>
       </div>
       <div class="body">
         <div class="meta">
-          <span class="time" data-role="time">${fmtT(c.inicio)} – ${fmtT(c.fim)}</span>
+          <span class="time" data-role="time">${fmtT(c.inicio)} â€“ ${fmtT(c.fim)}</span>
           <span class="durbadge ${ok60?'ok':''}" data-role="badge">${(+c.dur).toFixed(1)}s</span>
         </div>
         <div class="txt" title="${(c.texto||"").slice(0,400).replace(/"/g,"&quot;")}">${(c.texto||"").slice(0,180)}</div>
         <div class="editor">
-          <div><label>Início (s)</label><input type="number" step="0.1" value="${c.inicio}" id="i${c.id}" onchange="syncDur(${c.id},'i')"></div>
+          <div><label>InÃ­cio (s)</label><input type="number" step="0.1" value="${c.inicio}" id="i${c.id}" onchange="syncDur(${c.id},'i')"></div>
           <div><label>Fim (s)</label><input type="number" step="0.1" value="${c.fim}" id="f${c.id}" onchange="syncDur(${c.id},'f')"></div>
-          <div style="grid-column:1/-1"><label>Duração alvo (s)</label>
+          <div style="grid-column:1/-1"><label>DuraÃ§Ã£o alvo (s)</label>
             <div style="display:flex;gap:8px;align-items:center">
               <input type="number" step="1" value="${Math.round(c.dur||60)}" id="d${c.id}" onchange="syncDur(${c.id},'d')" style="max-width:110px">
               <button class="ghost sm" onclick="aplicarDuracao(${c.id},60)">60s exato</button>
@@ -2069,7 +2004,7 @@ function render(){
           <label class="chk"><input type="checkbox" ${selecionados.has(c.id)?"checked":""}
             onchange="marcar(${c.id}, this.checked)"> selecionar</label>
           <div class="acts">
-            <button class="ghost sm" onclick="ver(${c.id}, card(${c.id}).querySelector('.thumb'))">prévia</button>
+            <button class="ghost sm" onclick="ver(${c.id}, card(${c.id}).querySelector('.thumb'))">prÃ©via</button>
             <button class="sm acc" onclick="ajustar(${c.id})">salvar corte</button>
           </div>
         </div>
@@ -2101,9 +2036,9 @@ function atualizarCardInfo(id, ini, fim){
   const dur = +(fim-ini).toFixed(1);
   const ok60 = Math.abs(dur - 60) < 0.6;
   const b = el.querySelector('[data-role="dur"]'); if(b) b.textContent = dur.toFixed(1)+"s";
-  const t = el.querySelector('[data-role="time"]'); if(t) t.textContent = fmtT(ini)+" – "+fmtT(fim);
+  const t = el.querySelector('[data-role="time"]'); if(t) t.textContent = fmtT(ini)+" â€“ "+fmtT(fim);
   const bg = el.querySelector('[data-role="badge"]'); if(bg){ bg.textContent = dur.toFixed(1)+"s"; bg.classList.toggle("ok", ok60); }
-  const top = el.querySelector('.badge'); if(top) top.textContent = fmtT(ini)+" → "+fmtT(fim);
+  const top = el.querySelector('.badge'); if(top) top.textContent = fmtT(ini)+" â†’ "+fmtT(fim);
   const c = cands.find(x=>x.id===id); if(c){ c.inicio = ini; c.fim = fim; c.dur = dur; }
 }
 
@@ -2263,9 +2198,9 @@ async function renderArquivos(){
   box.innerHTML = "";
 
   document.getElementById("dtotal").textContent =
-    "Espaço usado pelos arquivos: " + tam(d.total_bytes);
+    "EspaÃ§o usado pelos arquivos: " + tam(d.total_bytes);
   document.getElementById("dlivre").textContent =
-    "Espaço livre no disco: " + tam(d.livre_bytes);
+    "EspaÃ§o livre no disco: " + tam(d.livre_bytes);
 
   renderFaltando(d.historico || []);
 
@@ -2364,7 +2299,7 @@ async function baixarUrl(url, btn){
   });
   const j = await r.json();
   if(j.erro){ toast(j.erro, "erro"); if(btn) btn.disabled = false; return; }
-  toast("baixando — acompanhe a barra", "ok");
+  toast("baixando â€” acompanhe a barra", "ok");
   fecharModal();
   iniciarPolling();
 }
@@ -2378,7 +2313,7 @@ async function baixarDeNovo(){
 }
 
 async function apagarItem(it, btn){
-  if(!await confirmar("Apagar " + it.rotulo + " (" + tam(it.bytes) + ")?\n\nSó esse item, o resto fica.")) return;
+  if(!await confirmar("Apagar " + it.rotulo + " (" + tam(it.bytes) + ")?\n\nSÃ³ esse item, o resto fica.")) return;
   btn.disabled = true;
 
   const enviar = async (body) => (await fetch("/api/apagar-item", {
@@ -2389,7 +2324,7 @@ async function apagarItem(it, btn){
   let j = await enviar({id: it.id, confirmar: true});
 
   if(j.erro === "protegido"){
-    if(!await confirmar("Este é o vídeo do último projeto analisado.\n\nApagar mesmo assim?")){
+    if(!await confirmar("Este Ã© o vÃ­deo do Ãºltimo projeto analisado.\n\nApagar mesmo assim?")){
       btn.disabled = false;
       return;
     }
@@ -2485,8 +2420,8 @@ function camMostrar(){
   document.getElementById("camTopo").value = pct;
   document.getElementById("camTopoV").textContent = pct;
   document.getElementById("camInfo").textContent =
-    "x " + Math.round(CAMCFG.x*100) + "% · y " + Math.round(CAMCFG.y*100) +
-    "% · w " + Math.round(CAMCFG.w*100) + "% · h " + Math.round(CAMCFG.h*100) + "%";
+    "x " + Math.round(CAMCFG.x*100) + "% Â· y " + Math.round(CAMCFG.y*100) +
+    "% Â· w " + Math.round(CAMCFG.w*100) + "% Â· h " + Math.round(CAMCFG.h*100) + "%";
 }
 
 function camOut(){
@@ -2524,9 +2459,9 @@ async function detectarCam(){
     if(j.erro){ toast(j.erro, "erro"); return; }
     CAMCFG = j;
     camMostrar(); camOut();
-    toast("cam encontrada — ajuste arrastando se precisar");
+    toast("cam encontrada â€” ajuste arrastando se precisar");
   } finally {
-    btn.disabled = false; btn.textContent = "detectar automático";
+    btn.disabled = false; btn.textContent = "detectar automÃ¡tico";
   }
 }
 
