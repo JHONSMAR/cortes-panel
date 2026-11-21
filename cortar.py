@@ -255,21 +255,46 @@ def _bgutil_pot_status():
     return {"plugin": plugin, "provider": provider, "base_url": base_url, "disabled": False}
 
 
-def baixar(url, qual=1080, codec="avc", nome=None):
+def ffprobe_audio_tracks(path):
+    """Lista faixas de áudio (index, codec, lang, title, channels)."""
+    try:
+        out = subprocess.run(
+            [FFPROBE, "-v", "error", "-select_streams", "a",
+             "-show_entries", "stream=index,codec_name,channels:stream_tags=language,title",
+             "-of", "json", path],
+            capture_output=True, text=True, check=False, **_subprocess_kw(),
+        ).stdout
+        data = json.loads(out or "{}")
+        tracks = []
+        for i, s in enumerate(data.get("streams") or []):
+            tags = s.get("tags") or {}
+            tracks.append({
+                "i": i,
+                "stream_index": s.get("index"),
+                "codec": s.get("codec_name") or "",
+                "channels": s.get("channels"),
+                "lang": tags.get("language") or tags.get("LANGUAGE") or "",
+                "title": tags.get("title") or tags.get("TITLE") or "",
+            })
+        return tracks
+    except Exception:
+        return []
+
+
+def baixar(url, qual=1080, codec="avc", nome=None,
+           audio_only=False, audio_format="mp3", audio_quality="192"):
     import yt_dlp
 
     os.makedirs(VODS, exist_ok=True)
     log(f"[1/5] Baixando: {url}")
 
     modelo_nome = (nome if nome else "%(title).80s") + ".%(ext)s"
-
-    # Formato simples e robusto (como era antes).
-    if codec == "vp9":
-        fmt = f"bv*[height<={qual}][vcodec^=vp9]+ba/b[height<={qual}]/bv*+ba/b/best"
-        container = "mkv"
-    else:
-        fmt = f"bv*[height<={qual}][vcodec^=avc1]+ba/b[height<={qual}]/bv*+ba/b/best"
-        container = "mp4"
+    audio_format = (audio_format or "mp3").lower().lstrip(".")
+    if audio_format not in ("mp3", "m4a", "opus", "wav", "best"):
+        audio_format = "mp3"
+    audio_quality = str(audio_quality or "192").replace("k", "").strip()
+    if not audio_quality.isdigit():
+        audio_quality = "192"
 
     def hook(d):
         if d.get("status") == "downloading":
@@ -294,9 +319,7 @@ def baixar(url, qual=1080, codec="avc", nome=None):
         log("[yt-dlp] bgutil PO token provider não detectado (opcional)")
 
     opcoes = {
-        "format": fmt,
         "outtmpl": os.path.join(VODS, modelo_nome),
-        "merge_output_format": container,
         "ffmpeg_location": _FFMPEG_DIR,
         "noplaylist": True,
         "quiet": True,
@@ -305,17 +328,39 @@ def baixar(url, qual=1080, codec="avc", nome=None):
         "retries": 10,
         "fragment_retries": 10,
         "concurrent_fragment_downloads": 1,
-        # Necessário para YouTube atual (nsig/ejs). Node já está instalado.
         "js_runtimes": {"node": {}},
         "remote_components": ["ejs:github"],
         "extractor_args": extractor_args,
         "logger": _YtLogger(),
     }
 
+    if audio_only:
+        opcoes["format"] = "bestaudio/best"
+        if audio_format != "best":
+            opcoes["postprocessors"] = [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": audio_format,
+                "preferredquality": audio_quality,
+            }]
+    else:
+        if codec == "vp9":
+            fmt = f"bv*[height<={qual}][vcodec^=vp9]+ba/b[height<={qual}]/bv*+ba/b/best"
+            container = "mkv"
+        else:
+            fmt = f"bv*[height<={qual}][vcodec^=avc1]+ba/b[height<={qual}]/bv*+ba/b/best"
+            container = "mp4"
+        opcoes["format"] = fmt
+        opcoes["merge_output_format"] = container
+
     try:
         with yt_dlp.YoutubeDL(opcoes) as ydl:
             info = ydl.extract_info(url, download=True)
             path = info.get("requested_downloads", [{}])[0].get("filepath") or ydl.prepare_filename(info)
+            if audio_only and audio_format != "best":
+                base, _ = os.path.splitext(path)
+                cand = base + "." + audio_format
+                if os.path.exists(cand):
+                    path = cand
     except Exception as e:
         msg = str(e)
         if "Sign in to confirm" in msg or "not a bot" in msg.lower():
@@ -908,7 +953,8 @@ def filtro_cam(sw, sh, W, H, cam, topo=0.45, marca=None):
 
 def renderizar(src, dims, corte, fmt, modo, ass_nome, out_path, temp_dir,
                sem_legenda=False, crf=None, preset=None, tamanho=None,
-               cam=None, topo=0.45, marca=None):
+               cam=None, topo=0.45, marca=None,
+               audio_mode="original", audio_track=0, audio_gain_db=0.0):
     W, H = tamanho if tamanho else FORMATOS[fmt]
     if modo == "cam" and cam:
         filtro = filtro_cam(dims[0], dims[1], W, H, cam, topo, marca)
@@ -929,12 +975,37 @@ def renderizar(src, dims, corte, fmt, modo, ass_nome, out_path, temp_dir,
         "-t", f"{dur:.3f}",
         "-filter_complex", filtro,
         "-map", "[vout]",
-        "-map", "0:a?",
+    ]
+
+    audio_mode = (audio_mode or "original").lower()
+    try:
+        audio_track = max(0, int(audio_track))
+    except Exception:
+        audio_track = 0
+    try:
+        audio_gain_db = float(audio_gain_db)
+    except Exception:
+        audio_gain_db = 0.0
+    audio_gain_db = max(-30.0, min(30.0, audio_gain_db))
+
+    if audio_mode == "mute":
+        cmd += ["-an"]
+    else:
+        af = []
+        if abs(audio_gain_db) > 0.01:
+            af.append(f"volume={audio_gain_db}dB")
+        if audio_mode == "normalize":
+            af.append("loudnorm=I=-16:TP=-1.5:LRA=11")
+        cmd += ["-map", f"0:a:{audio_track}?"]
+        if af:
+            cmd += ["-af", ",".join(af)]
+        cmd += ["-c:a", "aac", "-b:a", "192k", "-ar", "48000"]
+
+    cmd += [
         "-c:v", "libx264", "-preset", preset or PRESET,
         "-crf", str(crf if crf is not None else CRF),
         "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.2",
         "-g", "120", "-keyint_min", "60",
-        "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
         "-movflags", "+faststart",
         out_path,
     ]

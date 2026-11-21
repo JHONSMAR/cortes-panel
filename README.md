@@ -150,7 +150,8 @@ python cortar.py "E:\CORTES\vods\minha-live.mp4" --clips 5 --sem-legenda
 ## Notas de execução
 
 - **Sem janelas de CMD**: FFmpeg/FFprobe/WARP são chamados sem abrir janelas de console no Windows.
-- **Idioma da transcrição**: selecionável no painel (PT-BR, EN, FR, ES, Auto).
+- **Idioma da transcrição**: PT-BR, EN, FR, ES, Auto.
+- **Áudio**: download só-áudio (MP3/M4A/Opus/WAV + qualidade), escolha de faixa de áudio no export, modo de áudio do clipe (original, normalizar, ganho dB, sem áudio).
 
 ## Troubleshooting
 

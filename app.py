@@ -533,7 +533,8 @@ def api_ajustar():
     return jsonify({"ok": True})
 
 
-def _job_exportar(itens, fmtos, modo, crf, legenda, fs):
+def _job_exportar(itens, fmtos, modo, crf, legenda, fs,
+                   audio_mode="original", audio_track=0, audio_gain_db=0.0):
     try:
         _set(rodando=True, erro=None, pct=0, etapa="export",
              msg="renderizando clipes...")
@@ -570,7 +571,9 @@ def _job_exportar(itens, fmtos, modo, crf, legenda, fs):
                              ass_nome, out, N.TEMP, sem_legenda=not legenda,
                              crf=crf, preset="slow",
                              cam=CAM, topo=CAM.get("topo", 0.45),
-                             marca=_marca() if modo == "cam" else None)
+                             marca=_marca() if modo == "cam" else None,
+                             audio_mode=audio_mode, audio_track=audio_track,
+                             audio_gain_db=audio_gain_db)
                 if ass_nome:
                     try:
                         os.remove(os.path.join(N.TEMP, ass_nome))
@@ -606,13 +609,42 @@ def api_exportar():
     if not fmtos:
         return jsonify({"erro": "escolha ao menos um formato"}), 400
 
+    audio_mode = (d.get("audio_mode") or "original").lower()
+    if audio_mode not in ("original", "normalize", "gain", "mute"):
+        audio_mode = "original"
+    try:
+        audio_track = max(0, int(d.get("audio_track", 0)))
+    except Exception:
+        audio_track = 0
+    try:
+        audio_gain_db = float(d.get("audio_gain_db", 0))
+    except Exception:
+        audio_gain_db = 0.0
+    audio_gain_db = max(-30.0, min(30.0, audio_gain_db))
+
     threading.Thread(target=_job_exportar,
                      args=(itens, fmtos, d.get("modo", "blur"),
                            int(d.get("crf", 18)),
                            bool(d.get("legenda", True)),
-                           int(d.get("tamanho_fonte", 0))),
+                           int(d.get("tamanho_fonte", 0)),
+                           audio_mode, audio_track, audio_gain_db),
                      daemon=True).start()
     return jsonify({"ok": True})
+
+
+@app.route("/api/audio-tracks")
+def api_audio_tracks():
+    src = (request.args.get("src") or "").strip()
+    if src and not os.path.isabs(src):
+        src = os.path.abspath(os.path.join(BASE, src))
+    if not src:
+        src = PROJETO.get("src") or ""
+    if not src or not os.path.isfile(src):
+        return jsonify({"tracks": [], "erro": "arquivo não encontrado"})
+    try:
+        return jsonify({"tracks": N.ffprobe_audio_tracks(src)})
+    except Exception as e:
+        return jsonify({"tracks": [], "erro": str(e)}), 500
 
 
 HIST = os.path.join(BASE, "historico.json")
@@ -649,11 +681,20 @@ def api_baixar():
         return jsonify({"erro": "faltou o link"}), 400
     qual = int(d.get("qualidade") or 1080)
     codec = d.get("codec") or "avc"
+    audio_only = bool(d.get("audio_only", False))
+    audio_format = (d.get("audio_format") or "mp3").lower()
+    if audio_format not in ("mp3", "m4a", "opus", "wav", "best"):
+        audio_format = "mp3"
+    audio_quality = str(d.get("audio_quality") or "192")
+
     def job():
         try:
             _set(rodando=True, erro=None, pct=2, etapa="download",
-                 msg="baixando " + url[-24:])
-            src, info = N.baixar(url, qual, codec)
+                 msg=("baixando áudio " if audio_only else "baixando ") + url[-24:])
+            src, info = N.baixar(url, qual, codec,
+                                 audio_only=audio_only,
+                                 audio_format=audio_format,
+                                 audio_quality=audio_quality)
             titulo = info.get("title") if isinstance(info, dict) else ""
             _add_hist(url, titulo, src)
             _set(rodando=False, pct=100, etapa="pronto",
@@ -1267,6 +1308,29 @@ HTML = r"""<!doctype html>
         <input type="range" id="sens" min="1" max="10" value="5"
                oninput="document.getElementById('sensv').textContent=this.value"></div>
     </div>
+    <div class="row mt">
+      <div class="f">
+        <label>&nbsp;</label>
+        <label class="chk" style="height:41px"><input type="checkbox" id="audioOnly" onchange="toggleAudioOnly()"> só áudio</label>
+      </div>
+      <div class="f"><label>Formato áudio</label>
+        <select id="audioFormat">
+          <option value="mp3" selected>MP3</option>
+          <option value="m4a">M4A</option>
+          <option value="opus">Opus</option>
+          <option value="wav">WAV</option>
+        </select></div>
+      <div class="f"><label>Qualidade áudio</label>
+        <select id="audioQuality">
+          <option value="128">128 kbps</option>
+          <option value="192" selected>192 kbps</option>
+          <option value="256">256 kbps</option>
+          <option value="320">320 kbps</option>
+        </select></div>
+      <div class="f grow"><label>Download direto</label>
+        <button class="ghost" onclick="baixarFonte()" style="height:41px">Baixar fonte</button>
+      </div>
+    </div>
     <div class="progwrap">
       <div class="bar"><i id="prog"></i></div>
       <div class="st"><span id="status">parado</span><span id="pct"></span></div>
@@ -1316,6 +1380,19 @@ HTML = r"""<!doctype html>
         <label>&nbsp;</label>
         <label class="chk" style="height:41px"><input type="checkbox" id="legenda" checked> legenda</label>
       </div>
+    </div>
+    <div class="row mt">
+      <div class="f"><label>Áudio do clipe</label>
+        <select id="audioMode" onchange="toggleAudioMode()">
+          <option value="original" selected>Original</option>
+          <option value="normalize">Normalizar</option>
+          <option value="gain">Ajustar volume</option>
+          <option value="mute">Sem áudio</option>
+        </select></div>
+      <div class="f" id="audioGainWrap" style="display:none"><label>Ganho (dB) <span id="audioGainV" style="color:var(--acc)">0</span></label>
+        <input type="range" id="audioGainDb" min="-18" max="18" value="0" oninput="document.getElementById('audioGainV').textContent=this.value"></div>
+      <div class="f grow"><label>Faixa de áudio</label>
+        <select id="audioTrack"><option value="0">Faixa 1 (padrão)</option></select></div>
     </div>
     <div id="campanel" style="display:none">
       <div class="camwrap">
@@ -1403,6 +1480,58 @@ function toast(msg, tipo){
   setTimeout(() => t.remove(), 3900);
 }
 
+function toggleAudioOnly(){
+  const on = document.getElementById("audioOnly").checked;
+  document.getElementById("audioFormat").disabled = !on;
+  document.getElementById("audioQuality").disabled = !on;
+}
+
+function toggleAudioMode(){
+  const mode = document.getElementById("audioMode").value;
+  document.getElementById("audioGainWrap").style.display = mode === "gain" ? "block" : "none";
+}
+
+async function carregarFaixasAudio(){
+  try{
+    const r = await fetch("/api/audio-tracks");
+    const j = await r.json();
+    const sel = document.getElementById("audioTrack");
+    const tracks = j.tracks || [];
+    sel.innerHTML = "";
+    if(!tracks.length){
+      sel.innerHTML = '<option value="0">Faixa 1 (padrão)</option>';
+      return;
+    }
+    tracks.forEach((t, idx) => {
+      const label = `Faixa ${idx+1}` + (t.lang ? ` [${t.lang}]` : "") + (t.title ? ` - ${t.title}` : "") + (t.codec ? ` (${t.codec})` : "");
+      const opt = document.createElement("option");
+      opt.value = String(idx);
+      opt.textContent = label;
+      sel.appendChild(opt);
+    });
+  }catch(e){}
+}
+
+async function baixarFonte(){
+  const fonte = document.getElementById("fonte").value.trim();
+  if(!fonte){ toast("Cole um link ou caminho", "erro"); return; }
+  if(!/^https?:\/\//i.test(fonte)){ toast("Para baixar direto, use um link http/https", "erro"); return; }
+  const body = {
+    url: fonte,
+    qualidade: +document.getElementById("qualidade").value,
+    codec: document.getElementById("codec").value,
+    audio_only: document.getElementById("audioOnly").checked,
+    audio_format: document.getElementById("audioFormat").value,
+    audio_quality: document.getElementById("audioQuality").value,
+  };
+  document.getElementById("erro").style.display = "none";
+  const r = await fetch("/api/baixar", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+  const j = await r.json();
+  if(j.erro){ toast(j.erro, "erro"); return; }
+  toast("Download iniciado - acompanhe a barra", "ok");
+  iniciarPolling();
+}
+
 function confirmar(msg){
   return new Promise(res => {
     const ov = document.getElementById("conf");
@@ -1459,6 +1588,9 @@ async function atualizarNetwork(){
     }
   }catch(e){}
 }
+
+toggleAudioOnly();
+toggleAudioMode();
 
 async function toggleWarp(){
   if(warpBusy) return;
@@ -1523,6 +1655,7 @@ async function carregarCandidatos(){
   durVideo = d.dur || 0;
   selecionados = new Set(cands.map(c => c.id));
   document.getElementById("cont").textContent = d.titulo || "";
+  carregarFaixasAudio();
   render();
   if(document.getElementById("modo").value === "cam") camInit();
 }
@@ -1720,7 +1853,10 @@ async function exportar(){
     formatos: fmtos,
     modo: document.getElementById("modo").value,
     crf: +document.getElementById("crf").value,
-    legenda: document.getElementById("legenda").checked
+    legenda: document.getElementById("legenda").checked,
+    audio_mode: document.getElementById("audioMode").value,
+    audio_track: +document.getElementById("audioTrack").value || 0,
+    audio_gain_db: +document.getElementById("audioGainDb").value || 0
   };
   document.getElementById("btnExport").disabled = true;
   const r = await fetch("/api/exportar", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
@@ -1842,9 +1978,15 @@ function renderFaltando(lista){
 async function baixarUrl(url, btn){
   if(btn) btn.disabled = true;
   document.getElementById("erro").style.display = "none";
+  const body = {
+    url, qualidade:1440, codec:"vp9",
+    audio_only: document.getElementById("audioOnly")?.checked || false,
+    audio_format: document.getElementById("audioFormat")?.value || "mp3",
+    audio_quality: document.getElementById("audioQuality")?.value || "192",
+  };
   const r = await fetch("/api/baixar", {
     method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({url, qualidade:1440, codec:"vp9"})
+    body: JSON.stringify(body)
   });
   const j = await r.json();
   if(j.erro){ toast(j.erro, "erro"); if(btn) btn.disabled = false; return; }
