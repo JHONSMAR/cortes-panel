@@ -1348,7 +1348,9 @@ HTML = r"""<!doctype html>
   .clip:hover{border-color:#7c5cff55;transform:translateY(-2px);box-shadow:0 14px 30px #00000045}
   .clip.sel{border-color:#7c5cffaa;box-shadow:0 0 0 1px #7c5cff55,0 14px 30px #7c5cff18}
   .thumb{position:relative;aspect-ratio:16/9;background:#05080f;cursor:pointer}
+  .thumb.vertical{aspect-ratio:9/16;max-height:420px;margin:0 auto}
   .thumb img,.thumb video{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb.vertical video{object-fit:contain;background:#000}
   .badge{position:absolute;top:10px;left:10px;padding:4px 8px;border-radius:8px;font:700 11px/1 "JetBrains Mono",monospace;background:#00000088;border:1px solid #ffffff22;backdrop-filter:blur(6px)}
   .badge.r{left:auto;right:10px;color:#c7ffe9}
   .badge.b{top:auto;bottom:10px;left:10px;color:var(--warn)}
@@ -2006,7 +2008,7 @@ function render(){
           <label class="chk"><input type="checkbox" ${selecionados.has(c.id)?"checked":""}
             onchange="marcar(${c.id}, this.checked)"> selecionar</label>
           <div class="acts">
-            <button class="ghost sm" onclick="ver(${c.id}, card(${c.id}).querySelector('.thumb'))">pravia</button>
+            <button class="ghost sm" onclick="ver(${c.id}, card(${c.id}).querySelector('.thumb'))">Previa</button>
             <button class="sm acc" onclick="ajustar(${c.id})">salvar corte</button>
           </div>
         </div>
@@ -2102,7 +2104,11 @@ function ver(id, box){
   const alvo = el || card(id)?.querySelector('.thumb');
   if(!alvo) return;
   const modo = document.getElementById("modo").value;
-  alvo.innerHTML = `<video controls autoplay src="/preview/${chave}/${id}?modo=${modo}&t=${Date.now()}"></video>`;
+  const vertical = (modo === 'cam' || modo === 'blur' || modo === 'pad' || modo === 'crop') ? (document.querySelector('#fmtos .pill[data-f="916"].on') || document.querySelector('#fmtos .pill.on')?.dataset.f==='916') : false;
+  // Use vertical preview aspect when 9:16 is selected or cam mode
+  const isVert = modo === 'cam' || (document.querySelector('#fmtos .pill[data-f="916"].on') && !document.querySelector('#fmtos .pill[data-f="169"].on'));
+  alvo.classList.toggle('vertical', !!isVert);
+  alvo.innerHTML = `<video controls autoplay playsinline src="/preview/${chave}/${id}?modo=${modo}&t=${Date.now()}"></video>`;
 }
 
 function marcarTodos(v){
