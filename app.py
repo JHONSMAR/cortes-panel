@@ -1968,7 +1968,7 @@ function aplicarPresetSelecionado(){
   set('modo',p.modo); set('crf',p.crf); if(p.legenda!=null) document.getElementById('legenda').checked=!!p.legenda;
   set('audioMode',p.audio_mode); set('audioGainDb',p.audio_gain_db); if(p.audio_gain_db!=null) document.getElementById('audioGainV').textContent=p.audio_gain_db;
   if(p._download_audio_only){ document.getElementById('audioOnly').checked=true; if(p._audio_format) document.getElementById('audioFormat').value=p._audio_format; if(p._audio_quality) document.getElementById('audioQuality').value=p._audio_quality; toggleAudioOnly(); }
-  toggleAudioMode(); modoMudou(); atualizarSelInfo();
+  toggleAudioMode(); modoMudou(); atualizarSel();
 }
 
 async function salvarPreset(){
