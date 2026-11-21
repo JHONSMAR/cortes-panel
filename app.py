@@ -1198,7 +1198,7 @@ HTML = r"""<!doctype html>
       </div>
       <div class="f" style="min-width:auto">
         <label>&nbsp;</label>
-        <input type="text" id="cookies" placeholder="cookies.txt (opcional)">
+        <input type="text" id="cookies" placeholder="cookies.txt (opcional) — ou salve cookies.txt na pasta do projeto">
       </div>
       <button id="btnAnalisar" onclick="analisar()">Analisar</button>
     </div>

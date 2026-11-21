@@ -158,8 +158,24 @@ def baixar(url, qual=1080, codec="avc", nome=None, cookies_file=None):
         "progress_hooks": [hook],
         "retries": 5,
     }
+    if not cookies_file:
+        for cand in (
+            os.path.join(BASE, "cookies.txt"),
+            os.path.join(BASE, "youtube_cookies.txt"),
+            os.path.join(BASE, "www.youtube.com_cookies.txt"),
+        ):
+            if os.path.isfile(cand):
+                cookies_file = cand
+                log(f"      usando cookies: {os.path.basename(cand)}")
+                break
     if cookies_file:
-        opcoes_base["cookiefile"] = cookies_file
+        cookies_file = os.path.expandvars(os.path.expanduser(str(cookies_file).strip().strip('"')))
+        if os.path.isfile(cookies_file):
+            opcoes_base["cookiefile"] = cookies_file
+            log(f"      cookies: {cookies_file}")
+        else:
+            log(f"      aviso: arquivo de cookies não encontrado: {cookies_file}")
+            cookies_file = None
 
     def _tentar(opts):
         with yt_dlp.YoutubeDL(opts) as ydl:
