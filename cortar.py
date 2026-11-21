@@ -23,6 +23,23 @@ import sys
 import textwrap
 import wave
 
+# Windows: evita janelas de console piscando ao chamar ffmpeg/warp-cli etc.
+_SUBPROCESS_FLAGS = 0
+_STARTUPINFO = None
+if os.name == "nt":
+    _SUBPROCESS_FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+    _STARTUPINFO = subprocess.STARTUPINFO()
+    _STARTUPINFO.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 0x00000001)
+    _STARTUPINFO.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
+
+
+def _subprocess_kw(kw=None):
+    kw = dict(kw or {})
+    if os.name == "nt":
+        kw.setdefault("creationflags", _SUBPROCESS_FLAGS)
+        kw.setdefault("startupinfo", _STARTUPINFO)
+    return kw
+
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -97,7 +114,7 @@ class _YtLogger:
 
 
 def run(cmd, **kw):
-    return subprocess.run(cmd, check=True, **kw)
+    return subprocess.run(cmd, check=True, **_subprocess_kw(kw))
 
 
 def ffmpeg():
@@ -109,7 +126,7 @@ def ffprobe_dims(path):
         [FFPROBE, "-v", "error", "-select_streams", "v:0",
          "-show_entries", "stream=width,height",
          "-of", "csv=p=0:s=x", path],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True, check=True, **_subprocess_kw(),
     ).stdout.strip()
     w, h = out.split("x")[:2]
     return int(w), int(h)
@@ -119,7 +136,7 @@ def ffprobe_dur(path):
     out = subprocess.run(
         [FFPROBE, "-v", "error", "-show_entries", "format=duration",
          "-of", "csv=p=0", path],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True, check=True, **_subprocess_kw(),
     ).stdout.strip()
     return float(out)
 
@@ -158,7 +175,7 @@ def warp_status():
     if not cli:
         return {"installed": False, "connected": False, "status": "not_installed"}
     try:
-        r = subprocess.run([cli, "status"], capture_output=True, text=True, timeout=15)
+        r = subprocess.run([cli, "status"], capture_output=True, text=True, timeout=15, **_subprocess_kw())
         out = ((r.stdout or "") + "\n" + (r.stderr or "")).strip()
         low = out.lower()
         connected = "status update: connected" in low or "connected" == low
@@ -178,7 +195,7 @@ def warp_connect():
     if not cli:
         return {"ok": False, "erro": "Cloudflare WARP não encontrado (warp-cli)."}
     try:
-        subprocess.run([cli, "connect"], capture_output=True, text=True, timeout=20)
+        subprocess.run([cli, "connect"], capture_output=True, text=True, timeout=20, **_subprocess_kw())
         for _ in range(10):
             st = warp_status()
             if st.get("connected"):
@@ -194,7 +211,7 @@ def warp_disconnect():
     if not cli:
         return {"ok": False, "erro": "Cloudflare WARP não encontrado (warp-cli)."}
     try:
-        subprocess.run([cli, "disconnect"], capture_output=True, text=True, timeout=20)
+        subprocess.run([cli, "disconnect"], capture_output=True, text=True, timeout=20, **_subprocess_kw())
         time.sleep(2)
         return {"ok": True, "status": warp_status()}
     except Exception as e:
@@ -663,7 +680,7 @@ def _frames_gray(src, w, h, n=16):
             [ffmpeg(), "-v", "error", "-ss", f"{t:.2f}", "-i", src,
              "-frames:v", "1", "-vf", f"scale={w}:{h}",
              "-f", "rawvideo", "-pix_fmt", "gray", "-"],
-            capture_output=True)
+            capture_output=True, **_subprocess_kw())
         if len(r.stdout) == w * h:
             out.append(np.frombuffer(r.stdout, np.uint8).reshape(h, w).astype(np.float32))
     return np.stack(out) if out else None
@@ -921,7 +938,7 @@ def renderizar(src, dims, corte, fmt, modo, ass_nome, out_path, temp_dir,
         "-movflags", "+faststart",
         out_path,
     ]
-    subprocess.run(cmd, check=True, cwd=temp_dir)
+    subprocess.run(cmd, check=True, cwd=temp_dir, **_subprocess_kw())
 
 
 # ---------------------------------------------------------------------- main

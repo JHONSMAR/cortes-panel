@@ -9,7 +9,7 @@ Painel web local para **encontrar, ajustar e exportar automaticamente os melhore
 ## Destaques
 
 - **Análise automática de highlights**: detecta picos de energia no áudio (gritos, risadas, momentos quentes) e sugere trechos candidatos.
-- **Transcrição com IA**: usa [faster-whisper](https://github.com/SYSTRAN/faster-whisper) para gerar transcrição/legendas (com cache por vídeo).
+- **Transcrição com IA**: usa [faster-whisper](https://github.com/SYSTRAN/faster-whisper) para gerar transcrição/legendas (com cache por vídeo), com escolha de idioma (PT-BR, EN, FR, ES, Auto).
 - **Editor de cortes no navegador**: ajuste início/fim, duração alvo, nudges finos, prévia por trecho e salvamento individual ou em lote.
 - **Exportação multi-formato**: `9:16`, `16:9`, `4:5`, `1:1` em um único fluxo.
 - **Modos de enquadramento**: fundo desfocado, corte central, barras pretas e **layout "cam em cima"** para shorts (com posicionamento arrastável, detecção automática e marca d'água).
@@ -146,6 +146,11 @@ python cortar.py "E:\CORTES\vods\minha-live.mp4" --clips 5 --sem-legenda
 - **bgutil PO Token (opcional, avançado)**: o Cortes detecta automaticamente `bgutil-ytdlp-pot-provider` no mesmo Python e um provider HTTP em `BGUTIL_POT_PROVIDER_URL` (default `http://127.0.0.1:4416`). Pode ajudar, mas **não garante** bypass se o IP estiver flagged. `BGUTIL_POT_DISABLE=1` desabilita.
 - **Fallback garantido**: baixe o vídeo por outro método e cole o **caminho do arquivo local** no campo de fonte. A análise, detecção, legendas e exportação funcionam normalmente com arquivo local.
 - **Sem cookies no app**: o fluxo/UI de cookies foi removido por decisão do projeto.
+
+## Notas de execução
+
+- **Sem janelas de CMD**: FFmpeg/FFprobe/WARP são chamados sem abrir janelas de console no Windows.
+- **Idioma da transcrição**: selecionável no painel (PT-BR, EN, FR, ES, Auto).
 
 ## Troubleshooting
 

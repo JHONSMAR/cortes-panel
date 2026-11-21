@@ -190,7 +190,7 @@ def _job_analisar(fonte, opcoes):
 
             threading.Thread(target=_vigiar, daemon=True).start()
             try:
-                segmentos = N.transcrever(wav, opcoes["modelo"], "pt", "auto",
+                segmentos = N.transcrever(wav, opcoes["modelo"], opcoes.get("idioma", "pt"), "auto",
                                           cache=seg_path)
             finally:
                 parar.set()
@@ -239,7 +239,7 @@ def _job_analisar(fonte, opcoes):
 def _ffprobe_dur(p):
     return float(subprocess.run(
         [N.FFPROBE, "-v", "error", "-show_entries", "format=duration",
-         "-of", "csv=p=0", p], capture_output=True, text=True).stdout.strip() or 0)
+         "-of", "csv=p=0", p], capture_output=True, text=True, **N._subprocess_kw()).stdout.strip() or 0)
 
 
 def _gerar_thumb(idx):
@@ -252,7 +252,7 @@ def _gerar_thumb(idx):
     meio = (c["inicio"] + c["fim"]) / 2
     subprocess.run([N.FFMPEG, "-y", "-v", "error", "-ss", str(meio),
                     "-i", PROJETO["src"], "-frames:v", "1",
-                    "-vf", "scale=560:-2", "-q:v", "4", out], check=False)
+                    "-vf", "scale=560:-2", "-q:v", "4", out], check=False, **N._subprocess_kw())
     return out
 
 
@@ -334,6 +334,7 @@ def api_analisar():
     opcoes = {
         "n": max(1, min(40, int(d.get("n", 12)))),
         "modelo": d.get("modelo", "small"),
+        "idioma": d.get("idioma", "pt") or "pt",
         "qualidade": int(d.get("qualidade", 1080)),
         "codec": d.get("codec", "avc"),
         "limiar": round(max(1.5, 7.5 - sens * 0.55), 2),
@@ -440,7 +441,7 @@ def fonteframe():
         subprocess.run([N.ffmpeg(), "-y", "-v", "error",
                         "-ss", f"{_tempo_amostra():.2f}", "-i", PROJETO["src"],
                         "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "3", out],
-                       check=False)
+                       check=False, **N._subprocess_kw())
     if not os.path.exists(out):
         return "", 404
     return send_from_directory(PREV, os.path.basename(out), conditional=True)
@@ -461,7 +462,7 @@ def camlayout():
         subprocess.run([N.ffmpeg(), "-y", "-v", "error",
                         "-ss", f"{_tempo_amostra():.2f}", "-i", PROJETO["src"],
                         "-frames:v", "1", "-filter_complex", filtro,
-                        "-map", "[v]", "-q:v", "3", out], check=False)
+                        "-map", "[v]", "-q:v", "3", out], check=False, **N._subprocess_kw())
     if not os.path.exists(out):
         return "", 404
     return send_from_directory(PREV, os.path.basename(out), conditional=True)
@@ -980,7 +981,7 @@ def api_abrir_pasta():
     d = request.get_json(force=True)
     p = d.get("pasta") or SAIDA
     if os.path.isdir(p):
-        subprocess.Popen(["explorer.exe", p])
+        subprocess.Popen(["explorer.exe", p], **N._subprocess_kw())
         return jsonify({"ok": True})
     return jsonify({"erro": "pasta nao existe"}), 404
 
@@ -1250,6 +1251,14 @@ HTML = r"""<!doctype html>
         <select id="modelo"><option value="tiny">tiny</option>
         <option value="base">base</option><option value="small" selected>small</option>
         <option value="medium">medium</option></select></div>
+      <div class="f"><label>Idioma</label>
+        <select id="idioma">
+          <option value="pt" selected>Português (BR)</option>
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="es">Español</option>
+          <option value="auto">Auto</option>
+        </select></div>
       <div class="f"><label>Qualidade</label>
         <select id="qualidade"><option>720</option><option selected>1080</option><option>1440</option></select></div>
       <div class="f"><label>Codec</label>
@@ -1415,6 +1424,7 @@ async function analisar(){
     n: +document.getElementById("n").value,
     duracao: +document.getElementById("duracao").value,
     modelo: document.getElementById("modelo").value,
+    idioma: document.getElementById("idioma").value,
     qualidade: +document.getElementById("qualidade").value,
     codec: document.getElementById("codec").value,
     sensibilidade: +document.getElementById("sens").value,
