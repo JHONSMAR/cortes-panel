@@ -127,15 +127,26 @@ def baixar(url, qual=1080, codec="avc", nome=None, cookies_file=None):
 
     # protocol^=http exclui os streams m3u8 "Untested", que costumam ter
     # bitrate inflado (18 GB em vez de 11 GB no mesmo 1080p60).
+    # Fallbacks progressivos para evitar "Requested format is not available".
     if codec == "vp9":
-        fmt = (f"bv*[height<={qual}][protocol^=http][vcodec^=vp9]"
-               f"+ba[protocol^=http]/"
-               f"bv*[height<={qual}][protocol^=http]+ba[protocol^=http]/b")
+        fmt = (
+            f"bv*[height<={qual}][vcodec^=vp9][protocol^=http]+ba[protocol^=http]/"
+            f"bv*[height<={qual}][vcodec^=vp9]+ba/"
+            f"bv*[height<={qual}][protocol^=http]+ba[protocol^=http]/"
+            f"bv*[height<={qual}]+ba/"
+            f"b[height<={qual}]/"
+            f"bv*+ba/b/best"
+        )
         container = "mkv"
     else:
-        fmt = (f"bv*[height<={qual}][protocol^=http][vcodec^=avc1]"
-               f"+ba[protocol^=http]/"
-               f"bv*[height<={qual}][protocol^=http]+ba[protocol^=http]/b")
+        fmt = (
+            f"bv*[height<={qual}][vcodec^=avc1][protocol^=http]+ba[protocol^=http]/"
+            f"bv*[height<={qual}][vcodec^=avc1]+ba/"
+            f"bv*[height<={qual}][protocol^=http]+ba[protocol^=http]/"
+            f"bv*[height<={qual}]+ba/"
+            f"b[height<={qual}]/"
+            f"bv*+ba/b/best"
+        )
         container = "mp4"
 
     def hook(d):
