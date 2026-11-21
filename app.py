@@ -192,7 +192,10 @@ def _job_analisar(fonte, opcoes):
         tempos, score = N.detectar_picos(y, sr)
         del y
         picos = N.escolher_candidatos(tempos, score, minimo_db=opcoes["limiar"])
-        cortes = N.montar_cortes(picos, segmentos, 18.0, 55.0, opcoes["n"])
+        alvo = opcoes.get("duracao", 60)
+        alvo = None if not alvo or alvo <= 0 else float(alvo)
+        cortes = N.montar_cortes(picos, segmentos, 18.0, 55.0, opcoes["n"],
+                                 alvo=alvo, dur_total=dur)
 
         if not cortes:
             raise RuntimeError("nenhum trecho encontrado. baixe a sensibilidade.")
@@ -287,6 +290,13 @@ def api_analisar():
         return jsonify({"erro": "informe o link ou o caminho do arquivo"}), 400
 
     sens = float(d.get("sensibilidade", 5))
+    duracao = d.get("duracao", 60)
+    try:
+        duracao = float(duracao)
+    except (TypeError, ValueError):
+        duracao = 60.0
+    if duracao > 0:
+        duracao = max(15.0, min(180.0, duracao))
     opcoes = {
         "n": max(1, min(40, int(d.get("n", 12)))),
         "modelo": d.get("modelo", "small"),
@@ -294,6 +304,7 @@ def api_analisar():
         "codec": d.get("codec", "avc"),
         "limiar": round(max(1.5, 7.5 - sens * 0.55), 2),
         "cookies_file": d.get("cookies") or None,
+        "duracao": duracao,
     }
     threading.Thread(target=_job_analisar, args=(fonte, opcoes), daemon=True).start()
     return jsonify({"ok": True})
@@ -428,16 +439,55 @@ def api_ajustar():
     dados = request.get_json(force=True)
     try:
         idx = int(dados["id"])
-        ini = float(dados["inicio"])
-        fim = float(dados["fim"])
     except (KeyError, TypeError, ValueError):
         return jsonify({"erro": "dados invalidos"}), 400
     if not (0 <= idx < len(PROJETO["candidatos"])):
         return jsonify({"erro": "trecho inexistente"}), 404
-    if fim - ini < 5 or fim - ini > 120:
-        return jsonify({"erro": "duracao precisa ficar entre 5s e 120s"}), 400
-    PROJETO["candidatos"][idx].update(inicio=round(ini, 1), fim=round(fim, 1),
-                                      dur=round(fim - ini, 1))
+    c = PROJETO["candidatos"][idx]
+    dur_total = float(PROJETO.get("dur") or 0.0)
+
+    if "inicio" in dados and "fim" in dados:
+        try:
+            ini = float(dados["inicio"])
+            fim = float(dados["fim"])
+        except (TypeError, ValueError):
+            return jsonify({"erro": "dados invalidos"}), 400
+    elif "inicio" in dados and "duracao" in dados:
+        try:
+            ini = float(dados["inicio"])
+            alvo = float(dados["duracao"])
+        except (TypeError, ValueError):
+            return jsonify({"erro": "dados invalidos"}), 400
+        fim = ini + alvo
+    elif "centro" in dados and "duracao" in dados:
+        try:
+            centro = float(dados["centro"])
+            alvo = float(dados["duracao"])
+        except (TypeError, ValueError):
+            return jsonify({"erro": "dados invalidos"}), 400
+        ini = centro - alvo / 2.0
+        fim = centro + alvo / 2.0
+    elif "duracao" in dados:
+        try:
+            alvo = float(dados["duracao"])
+        except (TypeError, ValueError):
+            return jsonify({"erro": "dados invalidos"}), 400
+        centro = (float(c.get("inicio", 0)) + float(c.get("fim", 0))) / 2.0
+        ini = centro - alvo / 2.0
+        fim = centro + alvo / 2.0
+    else:
+        return jsonify({"erro": "dados invalidos"}), 400
+
+    dur = fim - ini
+    if dur < 5 or dur > 180:
+        return jsonify({"erro": "duracao precisa ficar entre 5s e 180s"}), 400
+    if ini < 0:
+        ini, fim = 0.0, dur
+    if dur_total > 0 and fim > dur_total:
+        fim = dur_total
+        ini = max(0.0, fim - dur)
+
+    c.update(inicio=round(ini, 1), fim=round(fim, 1), dur=round(fim - ini, 1))
     pasta_prev = os.path.join(PREV, PROJETO["chave"])
     if os.path.isdir(pasta_prev):
         for f in os.listdir(pasta_prev):
@@ -994,6 +1044,8 @@ HTML = r"""<!doctype html>
   .logmini div:last-child{color:var(--dim)}
 
   #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px}
+  .toolbar2{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:-6px 0 14px;color:var(--dim);font-size:12.5px;flex-wrap:wrap}
+  .toolbar2 .hint{color:var(--dim2);font-size:12px}
   .clip{background:var(--card2);border:1px solid var(--line);border-radius:13px;overflow:hidden;
         transition:border-color .15s,transform .15s,box-shadow .15s}
   .clip:hover{border-color:var(--line2);transform:translateY(-2px);box-shadow:0 10px 26px #0007}
@@ -1005,18 +1057,27 @@ HTML = r"""<!doctype html>
          padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;
          font-variant-numeric:tabular-nums;border:1px solid #ffffff14}
   .badge.r{left:auto;right:9px;color:var(--acc2)}
+  .badge.b{top:auto;bottom:9px;left:9px;color:#ffd36a}
   .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
         font-size:30px;color:#fff;text-shadow:0 2px 14px #000;pointer-events:none;
         opacity:0;transition:opacity .15s;background:#00000040}
   .thumb:hover .play{opacity:1}
   .body{padding:13px}
-  .txt{font-size:12.5px;color:var(--dim);height:55px;overflow:hidden;margin-bottom:12px;line-height:1.45}
-  .mini{display:flex;gap:6px;align-items:center}
-  .mini input{width:66px;padding:6px 8px;font-size:12px;text-align:center;
-              font-variant-numeric:tabular-nums}
-  .mini span{color:var(--dim2);font-size:12px}
-  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:11px;
-        padding-top:11px;border-top:1px solid var(--line)}
+  .meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+  .meta .time{font-size:12px;color:var(--txt);font-variant-numeric:tabular-nums;font-weight:600}
+  .durbadge{font-size:11px;padding:3px 8px;border-radius:999px;background:#223042;color:#9ecbff;border:1px solid #2e425a}
+  .durbadge.ok{background:#123226;color:#7ff0c8;border-color:#1f5a40}
+  .txt{font-size:12.5px;color:var(--dim);height:48px;overflow:hidden;margin-bottom:10px;line-height:1.45}
+  .editor{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+  .editor label{font-size:10px;margin-bottom:4px}
+  .editor input{padding:8px 10px;font-size:12.5px;font-variant-numeric:tabular-nums}
+  .nudge{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .nudge button{padding:5px 9px;font-size:11px;border-radius:7px}
+  .nudge .acc{background:#1d2740;border:1px solid #31476f;color:#b8d4ff}
+  .nudge .acc:hover{background:#243252}
+  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;
+        padding-top:10px;border-top:1px solid var(--line);gap:8px;flex-wrap:wrap}
+  .foot .acts{display:flex;gap:6px;align-items:center}
   .chk{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);cursor:pointer;
        text-transform:none;letter-spacing:0;font-weight:400;margin:0}
   input[type=checkbox]{width:16px;height:16px;accent-color:var(--acc);cursor:pointer;margin:0}
@@ -1131,6 +1192,14 @@ HTML = r"""<!doctype html>
     </div>
     <div class="row mt">
       <div class="f"><label>Trechos</label><input type="number" id="n" value="12" min="1" max="40"></div>
+      <div class="f"><label>Duração</label>
+        <select id="duracao">
+          <option value="60" selected>60s (exato)</option>
+          <option value="45">45s</option>
+          <option value="30">30s</option>
+          <option value="90">90s</option>
+          <option value="0">automática</option>
+        </select></div>
       <div class="f"><label>Modelo</label>
         <select id="modelo"><option value="tiny">tiny</option>
         <option value="base">base</option><option value="small" selected>small</option>
@@ -1154,8 +1223,16 @@ HTML = r"""<!doctype html>
   <section class="card">
     <div class="chead"><span class="num">2</span><h2>Trechos</h2><span class="count" id="cont"></span>
       <span class="grow"></span>
+      <button class="ghost sm" onclick="aplicarDuracaoTodos(60)">todos em 60s</button>
       <button class="ghost sm" onclick="marcarTodos(true)">todos</button>
       <button class="ghost sm" onclick="marcarTodos(false)">nenhum</button>
+    </div>
+    <div class="toolbar2">
+      <span id="selresumo" class="tot"></span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="hint">Edite início/fim ou use os botões de ajuste, depois salve. A prévia recarrega após salvar.</span>
+        <button class="ghost sm" onclick="salvarTodosAjustes()">salvar todos</button>
+      </div>
     </div>
     <div id="grid"><div class="empty">Nada analisado ainda — cole um link acima e clique em Analisar.</div></div>
   </section>
@@ -1289,6 +1366,7 @@ async function analisar(){
   const body = {
     fonte,
     n: +document.getElementById("n").value,
+    duracao: +document.getElementById("duracao").value,
     modelo: document.getElementById("modelo").value,
     qualidade: +document.getElementById("qualidade").value,
     codec: document.getElementById("codec").value,
@@ -1338,41 +1416,70 @@ function iniciarPolling(){
   }, 900);
 }
 
+let durVideo = 0;
+
 async function carregarCandidatos(){
   const d = await (await fetch("/api/candidatos")).json();
   cands = d.itens || [];
   chave = d.chave || '';
+  durVideo = d.dur || 0;
   selecionados = new Set(cands.map(c => c.id));
   document.getElementById("cont").textContent = d.titulo || "";
   render();
   if(document.getElementById("modo").value === "cam") camInit();
 }
 
+function card(id){ return document.querySelector(`.clip[data-id="${id}"]`); }
+
 function render(){
   const g = document.getElementById("grid");
-  if(!cands.length){ g.innerHTML = '<div class="empty">Nada analisado ainda.</div>'; return; }
+  if(!cands.length){ g.innerHTML = '<div class="empty">Nada analisado ainda.</div>'; atualizarSel(); return; }
   g.innerHTML = "";
   cands.forEach(c => {
+    const ok60 = Math.abs((+c.dur || 0) - 60) < 0.6;
     const el = document.createElement("div");
     el.className = "clip" + (selecionados.has(c.id) ? " sel" : "");
+    el.dataset.id = c.id;
     el.innerHTML = `
       <div class="thumb" onclick="ver(${c.id}, this)">
         <img src="/thumb/${chave}/${c.id}" loading="lazy">
-        <div class="badge">${fmtT(c.inicio)} &middot; ${c.dur}s</div>
+        <div class="badge">${fmtT(c.inicio)} → ${fmtT(c.fim)}</div>
         ${c.score ? `<div class="badge r">${Math.round(c.score)}</div>` : ""}
+        <div class="badge b" data-role="dur">${(+c.dur).toFixed(1)}s</div>
         <div class="play">&#9654;</div>
       </div>
       <div class="body">
-        <div class="txt" title="${(c.texto||"").slice(0,400).replace(/"/g,"&quot;")}">${(c.texto||"").slice(0,160)}</div>
-        <div class="mini">
-          <input type="number" step="0.5" value="${c.inicio}" id="i${c.id}">
-          <span>ate</span>
-          <input type="number" step="0.5" value="${c.fim}" id="f${c.id}">
-          <button class="ghost" style="padding:6px 10px;font-size:11px" onclick="ajustar(${c.id})">ok</button>
+        <div class="meta">
+          <span class="time" data-role="time">${fmtT(c.inicio)} – ${fmtT(c.fim)}</span>
+          <span class="durbadge ${ok60?'ok':''}" data-role="badge">${(+c.dur).toFixed(1)}s</span>
+        </div>
+        <div class="txt" title="${(c.texto||"").slice(0,400).replace(/"/g,"&quot;")}">${(c.texto||"").slice(0,180)}</div>
+        <div class="editor">
+          <div><label>Início (s)</label><input type="number" step="0.1" value="${c.inicio}" id="i${c.id}" onchange="syncDur(${c.id},'i')"></div>
+          <div><label>Fim (s)</label><input type="number" step="0.1" value="${c.fim}" id="f${c.id}" onchange="syncDur(${c.id},'f')"></div>
+          <div style="grid-column:1/-1"><label>Duração alvo (s)</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="number" step="1" value="${Math.round(c.dur||60)}" id="d${c.id}" onchange="syncDur(${c.id},'d')" style="max-width:110px">
+              <button class="ghost sm" onclick="aplicarDuracao(${c.id},60)">60s exato</button>
+              <button class="ghost sm" onclick="centralizar(${c.id})">centralizar</button>
+            </div>
+          </div>
+        </div>
+        <div class="nudge">
+          <button class="ghost sm" onclick="nudge(${c.id},-5)">-5s</button>
+          <button class="ghost sm" onclick="nudge(${c.id},-1)">-1s</button>
+          <button class="ghost sm" onclick="nudge(${c.id},-0.5)">-0.5s</button>
+          <button class="ghost sm" onclick="nudge(${c.id},0.5)">+0.5s</button>
+          <button class="ghost sm" onclick="nudge(${c.id},1)">+1s</button>
+          <button class="ghost sm" onclick="nudge(${c.id},5)">+5s</button>
         </div>
         <div class="foot">
           <label class="chk"><input type="checkbox" ${selecionados.has(c.id)?"checked":""}
             onchange="marcar(${c.id}, this.checked)"> selecionar</label>
+          <div class="acts">
+            <button class="ghost sm" onclick="ver(${c.id}, card(${c.id}).querySelector('.thumb'))">prévia</button>
+            <button class="sm acc" onclick="ajustar(${c.id})">salvar corte</button>
+          </div>
         </div>
       </div>`;
     g.appendChild(el);
@@ -1380,9 +1487,93 @@ function render(){
   atualizarSel();
 }
 
+function syncDur(id, origem){
+  const ii = document.getElementById("i"+id), fi = document.getElementById("f"+id), di = document.getElementById("d"+id);
+  let ini = +ii.value, fim = +fi.value, dur = +di.value;
+  if(origem === 'i' || origem === 'f'){
+    if(fim <= ini) fim = ini + (dur > 0 ? dur : 60);
+    dur = fim - ini;
+  } else {
+    const centro = (ini + fim) / 2;
+    if(!(dur > 0)) dur = 60;
+    ini = centro - dur/2; fim = centro + dur/2;
+  }
+  if(ini < 0){ ini = 0; fim = dur; }
+  if(durVideo > 0 && fim > durVideo){ fim = durVideo; ini = Math.max(0, fim - dur); }
+  ii.value = (+ini).toFixed(1); fi.value = (+fim).toFixed(1); di.value = Math.max(1, Math.round(fim-ini));
+  atualizarCardInfo(id, +ii.value, +fi.value);
+}
+
+function atualizarCardInfo(id, ini, fim){
+  const el = card(id); if(!el) return;
+  const dur = +(fim-ini).toFixed(1);
+  const ok60 = Math.abs(dur - 60) < 0.6;
+  const b = el.querySelector('[data-role="dur"]'); if(b) b.textContent = dur.toFixed(1)+"s";
+  const t = el.querySelector('[data-role="time"]'); if(t) t.textContent = fmtT(ini)+" – "+fmtT(fim);
+  const bg = el.querySelector('[data-role="badge"]'); if(bg){ bg.textContent = dur.toFixed(1)+"s"; bg.classList.toggle("ok", ok60); }
+  const top = el.querySelector('.badge'); if(top) top.textContent = fmtT(ini)+" → "+fmtT(fim);
+  const c = cands.find(x=>x.id===id); if(c){ c.inicio = ini; c.fim = fim; c.dur = dur; }
+}
+
+function nudge(id, delta){
+  const ii = document.getElementById("i"+id), fi = document.getElementById("f"+id);
+  let ini = +ii.value + delta, fim = +fi.value + delta, dur = fim - ini;
+  if(ini < 0){ ini = 0; fim = dur; }
+  if(durVideo > 0 && fim > durVideo){ fim = durVideo; ini = Math.max(0, fim - dur); }
+  ii.value = (+ini).toFixed(1); fi.value = (+fim).toFixed(1);
+  atualizarCardInfo(id, +ii.value, +fi.value);
+}
+
+function centralizar(id){
+  const ii = document.getElementById("i"+id), fi = document.getElementById("f"+id), di = document.getElementById("d"+id);
+  let dur = +di.value || (+fi.value - +ii.value) || 60;
+  const c = cands.find(x=>x.id===id);
+  const centro = c ? (c.inicio + c.fim)/2 : (+ii.value + +fi.value)/2;
+  let ini = centro - dur/2, fim = centro + dur/2;
+  if(ini < 0){ ini = 0; fim = dur; }
+  if(durVideo > 0 && fim > durVideo){ fim = durVideo; ini = Math.max(0, fim - dur); }
+  ii.value = (+ini).toFixed(1); fi.value = (+fim).toFixed(1); di.value = Math.max(1, Math.round(fim-ini));
+  atualizarCardInfo(id, +ii.value, +fi.value);
+}
+
+function aplicarDuracao(id, alvo){
+  const di = document.getElementById("d"+id);
+  di.value = alvo;
+  syncDur(id, 'd');
+}
+
+async function salvarTodosAjustes(){
+  if(!cands.length) return;
+  let ok = 0;
+  for(const c of cands){
+    const ii = document.getElementById("i"+c.id), fi = document.getElementById("f"+c.id);
+    if(!ii || !fi) continue;
+    const inicio = +ii.value, fim = +fi.value;
+    const r = await fetch("/api/ajustar", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({id:c.id, inicio, fim})});
+    const j = await r.json();
+    if(!j.erro){
+      c.inicio = +inicio.toFixed(1); c.fim = +fim.toFixed(1); c.dur = +(fim-inicio).toFixed(1);
+      atualizarCardInfo(c.id, c.inicio, c.fim);
+      ok++;
+    }
+  }
+  toast(`Salvos ${ok} cortes`, ok ? "ok" : "erro");
+}
+
+async function aplicarDuracaoTodos(alvo){
+  if(!cands.length) return;
+  for(const c of cands){ aplicarDuracao(c.id, alvo); }
+  await salvarTodosAjustes();
+  toast(`Todos ajustados e salvos em ~${alvo}s`, "ok");
+}
+
 function ver(id, box){
+  const el = (typeof box === 'string') ? document.querySelector(box) : box;
+  const alvo = el || card(id)?.querySelector('.thumb');
+  if(!alvo) return;
   const modo = document.getElementById("modo").value;
-  box.innerHTML = `<video controls autoplay src="/preview/${chave}/${id}?modo=${modo}"></video>`;
+  alvo.innerHTML = `<video controls autoplay src="/preview/${chave}/${id}?modo=${modo}&t=${Date.now()}"></video>`;
 }
 
 function marcarTodos(v){
@@ -1392,17 +1583,18 @@ function marcarTodos(v){
 
 function marcar(id, on){
   on ? selecionados.add(id) : selecionados.delete(id);
-  const i = cands.findIndex(c => c.id === id);
-  const el = document.querySelectorAll(".clip")[i];
+  const el = card(id);
   if(el) el.classList.toggle("sel", on);
   atualizarSel();
 }
 
 function atualizarSel(){
   const fmtos = document.querySelectorAll("#fmtos .pill.on").length;
-  document.getElementById("selinfo").textContent =
-    selecionados.size + " de " + cands.length + " selecionados" +
-    (selecionados.size && fmtos ? " - " + (selecionados.size * fmtos) + " arquivos" : "");
+  const total = selecionados.size * fmtos;
+  const txt = selecionados.size + " de " + cands.length + " selecionados" +
+    (total ? " - " + total + " arquivo" + (total>1?"s":"") : "");
+  document.getElementById("selinfo").textContent = txt;
+  const sr = document.getElementById("selresumo"); if(sr) sr.textContent = txt;
   const b = document.getElementById("btnExport");
   b.disabled = selecionados.size === 0;
   b.textContent = selecionados.size ? "Exportar " + selecionados.size : "Exportar";
@@ -1411,13 +1603,15 @@ function atualizarSel(){
 async function ajustar(id){
   const inicio = +document.getElementById("i"+id).value;
   const fim = +document.getElementById("f"+id).value;
+  const duracao = +(fim - inicio).toFixed(1);
   const r = await fetch("/api/ajustar", {method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({id, inicio, fim})});
   const j = await r.json();
   if(j.erro){ toast(j.erro, "erro"); return; }
   const c = cands.find(x=>x.id===id);
-  c.inicio = inicio; c.fim = fim; c.dur = +(fim-inicio).toFixed(1);
-  render();
+  if(c){ c.inicio = +inicio.toFixed(1); c.fim = +fim.toFixed(1); c.dur = duracao; }
+  atualizarCardInfo(id, c.inicio, c.fim);
+  toast(`Corte salvo (${duracao}s)`);
 }
 
 async function exportar(){

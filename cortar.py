@@ -357,42 +357,85 @@ GATILHOS = [
 ]
 
 
-def montar_cortes(candidatos, segmentos, minimo=18.0, maximo=55.0, n=10):
-    """Converte picos de audio em janelas comecando/fechando em frase."""
+def montar_cortes(candidatos, segmentos, minimo=18.0, maximo=55.0, n=10,
+                  alvo=None, dur_total=None):
+    """Converte picos de audio em janelas.
+
+    Se `alvo` for definido, gera cortes com essa duracao (ex.: 60s exatos),
+    tentando alinhar o inicio perto de uma fala e posicionar o pico dentro
+    da janela. Caso contrario usa o comportamento antigo (minimo/maximo).
+    """
     if not segmentos:
         return []
+
+    if dur_total is None:
+        dur_total = max((s["end"] for s in segmentos), default=0.0)
+    if alvo is not None:
+        alvo = float(alvo)
 
     cortes = []
     for t in candidatos:
         # segmento de fala mais proximo do pico
-        alvo = min(segmentos, key=lambda s: 0 if s["start"] <= t <= s["end"]
-                   else min(abs(s["start"] - t), abs(s["end"] - t)))
-        inicio = max(0.0, alvo["start"] - 0.5)
+        alvo_seg = min(segmentos, key=lambda s: 0 if s["start"] <= t <= s["end"]
+                       else min(abs(s["start"] - t), abs(s["end"] - t)))
 
-        fim = inicio
-        for s in segmentos:
-            if s["end"] > inicio and s["end"] - inicio <= maximo:
-                fim = s["end"] + 0.35
-            elif s["end"] > inicio:
-                break
+        if alvo is not None:
+            # ancora o pico por volta de 35% dentro da janela
+            inicio = max(0.0, t - alvo * 0.35)
+            # tenta comecar numa fronteira de fala proxima
+            melhor_inicio = inicio
+            melhor_d = 1e9
+            for s in segmentos:
+                cand = s["start"] - 0.25
+                if inicio - 8.0 <= cand <= inicio + 6.0:
+                    d = abs(cand - inicio)
+                    if d < melhor_d:
+                        melhor_d = d
+                        melhor_inicio = cand
+            inicio = max(0.0, melhor_inicio)
 
-        dur = fim - inicio
-        if dur < minimo:
-            continue
+            fim = inicio + alvo
+            if dur_total > 0 and fim > dur_total:
+                fim = dur_total
+                inicio = max(0.0, fim - alvo)
+            # se o video for menor que o alvo, usa o que houver
+            if dur_total > 0 and dur_total < alvo:
+                inicio, fim = 0.0, dur_total
+
+            dur = fim - inicio
+            if dur < alvo * 0.9 and (dur_total <= 0 or dur_total >= alvo * 0.9):
+                continue
+        else:
+            inicio = max(0.0, alvo_seg["start"] - 0.5)
+            fim = inicio
+            for s in segmentos:
+                if s["end"] > inicio and s["end"] - inicio <= maximo:
+                    fim = s["end"] + 0.35
+                elif s["end"] > inicio:
+                    break
+
+            dur = fim - inicio
+            if dur < minimo:
+                continue
 
         texto = " ".join(s["texto"] for s in segmentos
                          if s["end"] > inicio and s["start"] < fim).lower()
         bonus = sum(2.0 for g in GATILHOS if g in texto)
         densidade = sum(1 for s in segmentos if s["end"] > inicio and s["start"] < fim)
-        nota = bonus + densidade * 0.15 + (t - inicio) / 1000.0
+        # nota levemente favorece pico bem posicionado no corte
+        pos = 0.0
+        if dur > 0:
+            pos = 1.0 - abs(((t - inicio) / dur) - 0.35)
+        nota = bonus + densidade * 0.15 + max(0.0, pos) * 0.5
 
-        cortes.append({"start": inicio, "end": fim, "nota": nota, "texto": texto.strip()})
+        cortes.append({"start": round(inicio, 2), "end": round(fim, 2),
+                       "nota": nota, "texto": texto.strip()})
 
     # remove sobreposicao, mantendo os de maior nota
     cortes.sort(key=lambda c: c["nota"], reverse=True)
     finais = []
     for c in cortes:
-        if all(c["end"] <= f["start"] or c["start"] >= f["end"] for f in finais):
+        if all(c["end"] <= f["start"] + 0.05 or c["start"] >= f["end"] - 0.05 for f in finais):
             finais.append(c)
         if len(finais) >= n:
             break
@@ -768,6 +811,8 @@ def main():
     ap.add_argument("--dispositivo", default="auto", choices=["auto", "cuda", "cpu"])
     ap.add_argument("--min", dest="minimo", type=float, default=18.0)
     ap.add_argument("--max", dest="maximo", type=float, default=55.0)
+    ap.add_argument("--duracao", type=float, default=60.0,
+                    help="duracao fixa de cada corte em segundos (0 = usa --min/--max)")
     ap.add_argument("--qualidade", type=int, default=1080, help="altura maxima do download")
     ap.add_argument("--codec", default="avc", choices=["avc", "vp9"],
                     help="avc = mp4 compativel (~11GB/7h) | vp9 = webm menor (~6.5GB/7h)")
@@ -825,9 +870,11 @@ def main():
     tempos, score = detectar_picos(y, sr)
     candidatos = escolher_candidatos(tempos, score)
     log(f"      {len(candidatos)} picos candidatos")
-    cortes = montar_cortes(candidatos, segmentos, args.minimo, args.maximo, args.clips)
+    cortes = montar_cortes(candidatos, segmentos, args.minimo, args.maximo, args.clips,
+                           alvo=args.duracao if args.duracao > 0 else None,
+                           dur_total=total)
     if not cortes:
-        sys.exit("nenhum trecho bom encontrado. tente --min menor ou outro video.")
+        sys.exit("nenhum trecho bom encontrado. tente outro video ou ajuste os parametros.")
 
     log(f"      {len(cortes)} trechos selecionados")
 
