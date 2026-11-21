@@ -164,10 +164,13 @@ def baixar(url, qual=1080, codec="avc", nome=None, cookies_file=None):
         "merge_output_format": container,
         "ffmpeg_location": _FFMPEG_DIR,
         "noplaylist": True,
-        "quiet": True,
-        "no_warnings": True,
+        "quiet": False,
+        "no_warnings": False,
         "progress_hooks": [hook],
         "retries": 5,
+        # Resolve desafios JS do YouTube (nsig etc). Node está disponível na máquina.
+        "js_runtimes": {"node": {}},
+        "remote_components": ["ejs:github"],
     }
     if not cookies_file:
         for cand in (

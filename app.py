@@ -108,9 +108,19 @@ def _protegidos():
     return p
 
 
+LOG_ARQ = os.path.join(BASE, "cortes.log")
+
+
 def _log(msg):
-    ESTADO["msg"] = str(msg).strip()
-    print(msg, flush=True)
+    texto = str(msg).strip()
+    ESTADO["msg"] = texto
+    linha = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {texto}"
+    print(linha, flush=True)
+    try:
+        with open(LOG_ARQ, "a", encoding="utf-8") as f:
+            f.write(linha + "\n")
+    except OSError:
+        pass
 
 
 N.log = _log
