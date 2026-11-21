@@ -46,3 +46,7 @@ dist/
 # Root debug text artifacts
 err.txt
 log.txt
+
+cookies.txt
+*_cookies.txt
+www.youtube.com_cookies.txt
