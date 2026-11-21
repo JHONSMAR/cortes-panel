@@ -73,6 +73,29 @@ def log(msg):
     print(msg, flush=True)
 
 
+class _YtLogger:
+    """Encaminha logs do yt-dlp para o logger do projeto (arquivo cortes.log)."""
+    def debug(self, msg):
+        # yt-dlp usa debug pra muita coisa; filtra ruído
+        if not msg:
+            return
+        if msg.startswith('[debug]'):
+            return
+        log(f"[yt-dlp] {msg}")
+
+    def info(self, msg):
+        if msg:
+            log(f"[yt-dlp] {msg}")
+
+    def warning(self, msg):
+        if msg:
+            log(f"[yt-dlp:warn] {msg}")
+
+    def error(self, msg):
+        if msg:
+            log(f"[yt-dlp:erro] {msg}")
+
+
 def run(cmd, **kw):
     return subprocess.run(cmd, check=True, **kw)
 
@@ -171,6 +194,8 @@ def baixar(url, qual=1080, codec="avc", nome=None, cookies_file=None):
         # Resolve desafios JS do YouTube (nsig etc). Node está disponível na máquina.
         "js_runtimes": {"node": {}},
         "remote_components": ["ejs:github"],
+        # Evita falha total quando um client (ex: web_safari) quebra por PO token.
+        "extractor_args": {"youtube": {"player_client": ["default", "-web_safari"]}},
     }
     if not cookies_file:
         for cand in (
@@ -191,11 +216,18 @@ def baixar(url, qual=1080, codec="avc", nome=None, cookies_file=None):
             log(f"      aviso: arquivo de cookies não encontrado: {cookies_file}")
             cookies_file = None
 
-    def _tentar(opts):
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            path = info["requested_downloads"][0]["filepath"]
-        return path, info
+        def _tentar(opts):
+        # Captura saída do yt-dlp no log persistente (cortes.log via N.log/_log)
+        opts = dict(opts)
+        opts.setdefault("logger", _YtLogger())
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                path = info["requested_downloads"][0]["filepath"]
+            return path, info
+        except Exception:
+            # deixa o caller tratar; o logger já registrou detalhes
+            raise
 
     def _browser_cookie_paths():
         import glob
