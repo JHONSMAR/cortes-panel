@@ -1312,24 +1312,26 @@ HTML = r"""<!doctype html>
     background:#7c5cff20;border:1px solid #7c5cff44}
   .chead h2{margin:0;font-size:16px;letter-spacing:-.01em;font-weight:750}
   .count{color:var(--dim2);font-size:12px;margin-left:2px}
-  .row{display:flex;gap:12px;flex-wrap:wrap}.mt{margin-top:12px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}.mt{margin-top:12px}
   .f{display:flex;flex-direction:column;gap:6px;min-width:150px;flex:1}
   .f.grow{flex:2;min-width:260px}
   label{font-size:11px;font-weight:700;color:#c4ccdb;letter-spacing:.04em;text-transform:uppercase}
-  input[type=text],input[type=number],select{width:100%;background:#0b1220;border:1px solid var(--line2);color:var(--txt);
-    border-radius:12px;padding:11px 12px;font:inherit;outline:none;transition:.18s}
+  input[type=text],input[type=number],select{width:100%;min-height:42px;background:#0b1220;border:1px solid var(--line2);color:var(--txt);
+    border-radius:12px;padding:10px 12px;font:inherit;outline:none;transition:.18s}
   input[type=text]:focus,input[type=number]:focus,select:focus{border-color:#7c5cff99;box-shadow:0 0 0 4px #7c5cff1f}
   input[type=range]{width:100%;accent-color:var(--acc)}
-  .chk{display:flex;align-items:center;gap:8px;color:var(--dim);font-size:13px;font-weight:600;text-transform:none;letter-spacing:0}
+  .chk{display:inline-flex;align-items:center;gap:8px;color:var(--dim);font-size:13px;font-weight:600;text-transform:none;letter-spacing:0}
   .chk input{width:16px;height:16px;accent-color:var(--acc)}
+  label.chk{min-height:42px;padding:0 12px;border:1px solid var(--line2);border-radius:12px;background:#0b1220}
 
   button{appearance:none;border:1px solid transparent;background:linear-gradient(135deg,var(--acc),#697eff);color:#fff;
-    padding:10px 14px;border-radius:12px;font:600 13px/1 Manrope,sans-serif;cursor:pointer;transition:.18s;white-space:nowrap}
+    padding:0 16px;min-height:42px;border-radius:12px;font:600 13px/1 Manrope,sans-serif;cursor:pointer;transition:.18s;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:8px}
   button:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 8px 24px #7c5cff44}
+  button:active{transform:translateY(0)}
   button:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
   button.ghost{background:#ffffff06;color:#e6ebf5;border-color:var(--line2)}
   button.ghost:hover{background:#ffffff10;box-shadow:none}
-  button.sm{padding:7px 10px;border-radius:10px;font-size:12px}
+  button.sm{padding:0 12px;min-height:34px;border-radius:10px;font-size:12px}
   button.danger{background:#ff6b8118;color:#ff9aaa;border-color:#ff6b8144}
   button.danger:hover{background:#ff6b8128;box-shadow:none}
 
@@ -1500,7 +1502,7 @@ HTML = r"""<!doctype html>
           <option value="320">320 kbps</option>
         </select></div>
       <div class="f grow"><label>Download direto</label>
-        <button class="ghost" onclick="baixarFonte()" style="height:41px">Baixar fonte</button>
+        <button class="ghost" onclick="baixarFonte()" style="width:100%">Baixar fonte</button>
       </div>
     </div>
     <div class="progwrap">
@@ -1550,7 +1552,7 @@ HTML = r"""<!doctype html>
         <option value="20">otima (20)</option><option value="23">boa (23)</option></select></div>
       <div class="f" style="min-width:auto">
         <label>&nbsp;</label>
-        <label class="chk" style="height:41px"><input type="checkbox" id="legenda" checked> legenda</label>
+        <label class="chk"><input type="checkbox" id="legenda" checked> legenda</label>
       </div>
     </div>
     <div class="row mt">
