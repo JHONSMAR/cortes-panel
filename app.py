@@ -1076,7 +1076,7 @@ def api_apagar_item():
     apagados = []
     livre = _remover(alvo, apagados)
     if livre == 0 and not apagados:
-        return jsonify({"erro": "nao consegui apagar (arquivo em uso?)"}), 500
+        return jsonify({"erro": "não consegui apagar (arquivo em uso?)"}), 500
 
     if tipo == "vod" and PROJETO.get("src") and \
             os.path.abspath(PROJETO["src"]) == os.path.abspath(alvo):
@@ -1269,7 +1269,7 @@ HTML = r"""<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Painel local para analisar lives, encontrar highlights e exportar clipes em formatos verticais e horizontais.">
 <meta name="theme-color" content="#0a0c11">
-<title>Cortes Ã¢â¬â Painel de Clipes</title>
+<title>Cortes - Painel de Clipes</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%236c5cff'/%3E%3Cstop offset='1' stop-color='%2322d3a6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%23111420'/%3E%3Cpath d='M20 18l26 14-26 14z' fill='url(%23g)'/%3E%3C/svg%3E">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
@@ -1554,7 +1554,7 @@ HTML = r"""<!doctype html>
       </div>
     </div>
     <div class="row mt">
-      <div class="f"><label>ÃÂudio do clipe</label>
+      <div class="f"><label>Áudio do clipe</label>
         <select id="audioMode" onchange="toggleAudioMode()">
           <option value="original" selected>Original</option>
           <option value="normalize">Normalizar</option>
@@ -1591,7 +1591,7 @@ HTML = r"""<!doctype html>
       </div>
     </div>
     <div class="preset-row">
-      <div class="f" style="min-width:220px"><label>Preset</label><select id="presetSelect" onchange="aplicarPresetSelecionado()"><option value="">Ã¢â¬â selecionar Ã¢â¬â</option></select></div>
+      <div class="f" style="min-width:220px"><label>Preset</label><select id="presetSelect" onchange="aplicarPresetSelecionado()"><option value="">- selecionar -</option></select></div>
       <button class="ghost sm" onclick="salvarPreset()">Salvar preset</button>
       <button class="ghost sm" onclick="excluirPreset()">Excluir preset</button>
     </div>
@@ -1620,8 +1620,8 @@ HTML = r"""<!doctype html>
       </div>
       <div id="vfalta"></div>
       <div class="disk">
-        <span id="dtotal">Ã¢â¬â</span>
-        <span id="dlivre">Ã¢â¬â</span>
+        <span id="dtotal">-</span>
+        <span id="dlivre">-</span>
       </div>
       <div id="mlist"></div>
       <div style="margin-top:16px;text-align:right">
@@ -1780,14 +1780,14 @@ async function atualizarNetwork(){
     const b = j.bgutil || {};
     const btn = document.getElementById("btnWarp");
     if(btn){
-      if(!w.installed) { btn.textContent = "WARP: off"; btn.disabled = true; btn.title = "Cloudflare WARP nÃÂ£o instalado"; }
+      if(!w.installed) { btn.textContent = "WARP: off"; btn.disabled = true; btn.title = "Cloudflare WARP não instalado"; }
       else { btn.disabled = warpBusy; btn.textContent = w.connected ? "WARP: ON" : "WARP: OFF"; btn.title = "Clique para conectar/desconectar Cloudflare WARP (troca IP)"; }
     }
     const ns = document.getElementById("netstatus");
     if(ns){
       const parts = [];
-      parts.push("WARP: " + (w.installed ? (w.connected ? "conectado" : "desconectado") : "nÃÂ£o instalado"));
-      parts.push("bgutil: " + (b.plugin ? (b.provider ? "ativo" : "plugin sem provider") : "nÃÂ£o instalado"));
+      parts.push("WARP: " + (w.installed ? (w.connected ? "conectado" : "desconectado") : "não instalado"));
+      parts.push("bgutil: " + (b.plugin ? (b.provider ? "ativo" : "plugin sem provider") : "não instalado"));
       ns.style.display = "block";
       ns.innerHTML = parts.map(p => "<div>" + p + "</div>").join("");
     }
@@ -1876,7 +1876,7 @@ async function carregarPresets(){
   try{
     const j = await (await fetch('/api/presets')).json();
     const sel = document.getElementById('presetSelect'); const cur = sel.value;
-    sel.innerHTML = '<option value="">Ã¢â¬â selecionar Ã¢â¬â</option>';
+    sel.innerHTML = '<option value="">- selecionar -</option>';
     const builtins = PRESETS_EMBUTIDOS;
     const user = j.presets || {};
     const og1 = document.createElement('optgroup'); og1.label='Embutidos';
@@ -1924,7 +1924,7 @@ async function atualizarFila(){
     const j = await (await fetch('/api/fila')).json();
     const list = document.getElementById('filaList');
     const itens = j.itens || [];
-    document.getElementById('filaStatus').textContent = j.ativa ? ` Ã¢â¬Â¢ ativa (${itens.filter(i=>i.status!=='concluido').length} pendente/rodando)` : '';
+    document.getElementById('filaStatus').textContent = j.ativa ? ` • ativa (${itens.filter(i=>i.status!=='concluido').length} pendente/rodando)` : '';
     if(!itens.length){ list.innerHTML='<div class="fila-item">Fila vazia</div>'; return; }
     list.innerHTML = itens.slice(-20).map(i=>`<div class="fila-item"><b>${i.status}</b><span>${i.tipo}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(i.msg||'').replace(/</g,'&lt;')}</span></div>`).join('');
   }catch(e){}
@@ -1970,14 +1970,14 @@ function render(){
     el.innerHTML = `
       <div class="thumb" onclick="ver(${c.id}, this)">
         <img src="/thumb/${chave}/${c.id}" loading="lazy">
-        <div class="badge">${fmtT(c.inicio)} Ã¢â â ${fmtT(c.fim)}</div>
+        <div class="badge">${fmtT(c.inicio)} - ${fmtT(c.fim)}</div>
         ${c.score ? `<div class="badge r">${Math.round(c.score)}</div>` : ""}
         <div class="badge b" data-role="dur">${(+c.dur).toFixed(1)}s</div>
         <div class="play">&#9654;</div>
       </div>
       <div class="body">
         <div class="meta">
-          <span class="time" data-role="time">${fmtT(c.inicio)} Ã¢â¬â ${fmtT(c.fim)}</span>
+          <span class="time" data-role="time">${fmtT(c.inicio)} - ${fmtT(c.fim)}</span>
           <span class="durbadge ${ok60?'ok':''}" data-role="badge">${(+c.dur).toFixed(1)}s</span>
         </div>
         <div class="txt" title="${(c.texto||"").slice(0,400).replace(/"/g,"&quot;")}">${(c.texto||"").slice(0,180)}</div>
@@ -2036,9 +2036,9 @@ function atualizarCardInfo(id, ini, fim){
   const dur = +(fim-ini).toFixed(1);
   const ok60 = Math.abs(dur - 60) < 0.6;
   const b = el.querySelector('[data-role="dur"]'); if(b) b.textContent = dur.toFixed(1)+"s";
-  const t = el.querySelector('[data-role="time"]'); if(t) t.textContent = fmtT(ini)+" Ã¢â¬â "+fmtT(fim);
+  const t = el.querySelector('[data-role="time"]'); if(t) t.textContent = fmtT(ini)+" - "+fmtT(fim);
   const bg = el.querySelector('[data-role="badge"]'); if(bg){ bg.textContent = dur.toFixed(1)+"s"; bg.classList.toggle("ok", ok60); }
-  const top = el.querySelector('.badge'); if(top) top.textContent = fmtT(ini)+" Ã¢â â "+fmtT(fim);
+  const top = el.querySelector('.badge'); if(top) top.textContent = fmtT(ini)+" - "+fmtT(fim);
   const c = cands.find(x=>x.id===id); if(c){ c.inicio = ini; c.fim = fim; c.dur = dur; }
 }
 
@@ -2299,7 +2299,7 @@ async function baixarUrl(url, btn){
   });
   const j = await r.json();
   if(j.erro){ toast(j.erro, "erro"); if(btn) btn.disabled = false; return; }
-  toast("baixando Ã¢â¬â acompanhe a barra", "ok");
+  toast("baixando - acompanhe a barra", "ok");
   fecharModal();
   iniciarPolling();
 }
@@ -2313,7 +2313,7 @@ async function baixarDeNovo(){
 }
 
 async function apagarItem(it, btn){
-  if(!await confirmar("Apagar " + it.rotulo + " (" + tam(it.bytes) + ")?\n\nSÃÂ³ esse item, o resto fica.")) return;
+  if(!await confirmar("Apagar " + it.rotulo + " (" + tam(it.bytes) + ")?\n\nSó esse item, o resto fica.")) return;
   btn.disabled = true;
 
   const enviar = async (body) => (await fetch("/api/apagar-item", {
@@ -2324,7 +2324,7 @@ async function apagarItem(it, btn){
   let j = await enviar({id: it.id, confirmar: true});
 
   if(j.erro === "protegido"){
-    if(!await confirmar("Este ÃÂ© o vÃÂ­deo do ÃÂºltimo projeto analisado.\n\nApagar mesmo assim?")){
+    if(!await confirmar("Este é o vídeo do último projeto analisado.\n\nApagar mesmo assim?")){
       btn.disabled = false;
       return;
     }
@@ -2459,7 +2459,7 @@ async function detectarCam(){
     if(j.erro){ toast(j.erro, "erro"); return; }
     CAMCFG = j;
     camMostrar(); camOut();
-    toast("cam encontrada Ã¢â¬â ajuste arrastando se precisar");
+    toast("cam encontrada - ajuste arrastando se precisar");
   } finally {
     btn.disabled = false; btn.textContent = "detectar automÃÂ¡tico";
   }
