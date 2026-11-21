@@ -2102,7 +2102,7 @@ function ver(id, box){
   const alvo = el || card(id)?.querySelector('.thumb');
   if(!alvo) return;
   const modo = document.getElementById("modo").value;
-  alvo.innerHTML = `<video controls autoplay src="/preview/${chave}/${id}cmodo=${modo}&t=${Date.now()}"></video>`;
+  alvo.innerHTML = `<video controls autoplay src="/preview/${chave}/${id}?modo=${modo}&t=${Date.now()}"></video>`;
 }
 
 function marcarTodos(v){
