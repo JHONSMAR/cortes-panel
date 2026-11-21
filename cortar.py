@@ -170,22 +170,40 @@ def baixar(url, qual=1080, codec="avc", nome=None, cookies_file=None):
     try:
         path, info = _tentar(opcoes_base)
     except Exception as e:
-        msg = str(e)
-        if "Sign in to confirm" in msg or "not a bot" in msg:
-            for browser in ("edge", "chrome", "firefox", "brave", "opera", "vivaldi"):
-                try:
-                    log(f"      YouTube bloqueou: tentando cookies do {browser}...")
-                    opts = dict(opcoes_base)
-                    opts["cookiesfrombrowser"] = (browser,)
-                    path, info = _tentar(opts)
-                    log(f"      ok com cookies do {browser}")
-                    break
-                except Exception:
-                    continue
-            else:
-                raise
-        else:
+        msg = str(e).lower()
+        precisa_cookies = any(s in msg for s in (
+            "sign in to confirm", "not a bot", "confirm you",
+            "use --cookies", "cookies-from-browser", "authentication required",
+        ))
+        if not precisa_cookies:
             raise
+
+        erros_browser = []
+        for browser in ("edge", "chrome", "chromium", "firefox", "brave", "opera", "vivaldi"):
+            try:
+                log(f"      YouTube bloqueou: tentando cookies do {browser}...")
+                opts = dict(opcoes_base)
+                # evita conflito com cookiefile e força autenticação via navegador
+                opts.pop("cookiefile", None)
+                opts["cookiesfrombrowser"] = (browser,)
+                path, info = _tentar(opts)
+                log(f"      ok com cookies do {browser}")
+                break
+            except Exception as eb:
+                erros_browser.append(f"{browser}: {str(eb).splitlines()[0][:140]}")
+                continue
+        else:
+            detalhes = "\n".join(f"  - {x}" for x in erros_browser[-5:]) if erros_browser else "  - nenhum navegador com cookies disponível"
+            raise RuntimeError(
+                "O YouTube exigiu verificação anti-bot e o download não pôde ser autenticado automaticamente.\n"
+                "Como resolver:\n"
+                "  1) Exporte os cookies do navegador para um arquivo cookies.txt e informe no campo de cookies do painel/CLI.\n"
+                "     Guia: https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp\n"
+                "  2) Feche o navegador e tente novamente (o yt-dlp pode conseguir ler os cookies locais).\n"
+                "  3) Atualize o yt-dlp: pip install -U yt-dlp\n\n"
+                f"Tentativas de cookies do navegador:\n{detalhes}\n\n"
+                f"Erro original: {e}"
+            ) from e
 
     log(f"      salvo em: {path}")
     return path, info

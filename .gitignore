@@ -1,13 +1,48 @@
-﻿vods/
+﻿# Runtime data / caches
+vods/
 audio/
 clips/
 preview/
 thumbs/
 temp/
 __pycache__/
+*.py[cod]
+*$py.class
+
+# Local state and logs
 *.log
 *.err
-*.txt
 estado.json
 historico.json
 cam.json
+
+# Environments
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Media / exports (safety)
+*.mp4
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.ass
+*.srt
+
+# Root debug text artifacts
+err.txt
+log.txt

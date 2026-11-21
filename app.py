@@ -958,7 +958,10 @@ HTML = r"""<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cortes</title>
+<meta name="description" content="Painel local para analisar lives, encontrar highlights e exportar clipes em formatos verticais e horizontais.">
+<meta name="theme-color" content="#0a0c11">
+<title>Cortes — Painel de Clipes</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%236c5cff'/%3E%3Cstop offset='1' stop-color='%2322d3a6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%23111420'/%3E%3Cpath d='M20 18l26 14-26 14z' fill='url(%23g)'/%3E%3C/svg%3E">
 <style>
   :root{
     --bg:#0a0c11; --card:#111420; --card2:#171b26; --card3:#1f2432;
@@ -975,10 +978,16 @@ HTML = r"""<!doctype html>
   .wrap{max-width:1240px;margin:0 auto}
 
   .top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;
-       padding-bottom:20px;margin-bottom:26px;border-bottom:1px solid var(--line)}
-  h1{font-size:20px;margin:0;letter-spacing:-.4px;font-weight:650}
-  .sub{color:var(--dim);font-size:13px;margin-top:5px;max-width:640px}
-  .topacts{display:flex;gap:9px;align-items:center;flex-shrink:0}
+       padding-bottom:22px;margin-bottom:28px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:flex-start;gap:14px}
+  .logo{width:38px;height:38px;border-radius:12px;flex-shrink:0;
+        background:linear-gradient(135deg,var(--acc),var(--acc2));
+        display:flex;align-items:center;justify-content:center;
+        box-shadow:0 8px 24px #6c5cff33}
+  .logo svg{width:18px;height:18px;fill:#fff;margin-left:2px}
+  h1{font-size:22px;margin:0;letter-spacing:-.5px;font-weight:700;line-height:1.1}
+  .sub{color:var(--dim);font-size:13px;margin-top:6px;max-width:700px}
+  .topacts{display:flex;gap:9px;align-items:center;flex-shrink:0;flex-wrap:wrap}
 
   .chip{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);
         background:var(--card2);border:1px solid var(--line);border-radius:99px;
@@ -1167,13 +1176,16 @@ HTML = r"""<!doctype html>
 <body>
 <div class="wrap">
   <header class="top">
-    <div>
-      <h1>Cortes</h1>
-      <div class="sub">Ache os melhores momentos da live, ajuste o corte e exporte em vertical e horizontal.</div>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></svg></div>
+      <div>
+        <h1>Cortes</h1>
+        <div class="sub">Encontre os melhores momentos da live, ajuste os cortes com precisão e exporte clipes prontos para Shorts, Reels e YouTube.</div>
+      </div>
     </div>
     <div class="topacts">
       <span class="chip" id="chip"><i></i><span id="chiptxt">parado</span></span>
-      <button class="ghost" onclick="listarVods()">Arquivos</button>
+      <button class="ghost" onclick="listarVods()" title="Gerenciar vídeos, áudios e clipes no disco">Arquivos</button>
     </div>
   </header>
 
@@ -1234,7 +1246,7 @@ HTML = r"""<!doctype html>
         <button class="ghost sm" onclick="salvarTodosAjustes()">salvar todos</button>
       </div>
     </div>
-    <div id="grid"><div class="empty">Nada analisado ainda — cole um link acima e clique em Analisar.</div></div>
+    <div id="grid"><div class="empty"><strong style="display:block;color:var(--txt);font-size:14px;margin-bottom:6px">Nenhum trecho analisado ainda</strong>Cole um link do YouTube ou caminho local, ajuste os parâmetros e clique em <b>Analisar</b> para gerar candidatos automaticamente.</div></div>
   </section>
 
   <section class="card">
@@ -1655,9 +1667,9 @@ async function renderArquivos(){
   box.innerHTML = "";
 
   document.getElementById("dtotal").textContent =
-    "Lives ocupando: " + tam(d.total_bytes);
+    "Espaço usado pelos arquivos: " + tam(d.total_bytes);
   document.getElementById("dlivre").textContent =
-    "Livre no disco E: " + tam(d.livre_bytes);
+    "Espaço livre no disco: " + tam(d.livre_bytes);
 
   renderFaltando(d.historico || []);
 
