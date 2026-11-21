@@ -33,6 +33,9 @@ ESTADO = {"rodando": False, "etapa": "", "pct": 0, "msg": "", "erro": None}
 PROJETO = {"src": None, "dims": None, "titulo": "", "dur": 0.0,
            "segmentos": [], "candidatos": [], "chave": ""}
 LOCK = threading.Lock()
+FILA = {"ativa": False, "atual": None, "itens": []}
+FILA_LOCK = threading.Lock()
+FILA_EVENT = threading.Event()
 
 # ---- config da cam (layout de shorts) + marca d'agua
 CAM_ARQ = os.path.join(BASE, "cam.json")
@@ -79,6 +82,7 @@ def _chave(src):
 
 
 ESTADO_ARQ = os.path.join(BASE, "estado.json")
+PRESETS_ARQ = os.path.join(BASE, "presets.json")
 
 
 def _ler_ultimo():
@@ -89,12 +93,37 @@ def _ler_ultimo():
         return {}
 
 
-def _salvar_ultimo(src):
+def _salvar_ultimo(src, projeto=None):
     try:
+        data = {"src": src, "quando": time.time()}
+        if projeto and projeto.get("src") and os.path.abspath(projeto.get("src")) == os.path.abspath(src):
+            data["projeto"] = {
+                "src": projeto.get("src"),
+                "dims": projeto.get("dims"),
+                "titulo": projeto.get("titulo"),
+                "dur": projeto.get("dur"),
+                "chave": projeto.get("chave"),
+                "segmentos": projeto.get("segmentos", []),
+                "candidatos": projeto.get("candidatos", []),
+            }
         with open(ESTADO_ARQ, "w", encoding="utf-8") as f:
-            json.dump({"src": src, "quando": time.time()}, f)
+            json.dump(data, f, ensure_ascii=False)
     except Exception:
         pass
+
+
+def _ler_presets():
+    try:
+        with open(PRESETS_ARQ, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def _salvar_presets(presets):
+    with open(PRESETS_ARQ, "w", encoding="utf-8") as f:
+        json.dump(presets, f, ensure_ascii=False, indent=2)
 
 
 def _protegidos():
@@ -135,6 +164,13 @@ def _set(pct=None, etapa=None, msg=None, **extra):
         if msg is not None:
             ESTADO["msg"] = msg
         ESTADO.update(extra)
+        # persiste projeto quando há candidatos (permite reabrir sem reanalisar)
+        try:
+            src = PROJETO.get("src")
+            if src and PROJETO.get("candidatos") and not ESTADO.get("rodando"):
+                _salvar_ultimo(src, PROJETO)
+        except Exception:
+            pass
 
 
 # --------------------------------------------------------------- pipeline
@@ -556,16 +592,24 @@ def _job_exportar(itens, fmtos, modo, crf, legenda, fs,
             for fmt in fmtos:
                 W, H = N.FORMATOS[fmt]
                 ass_nome = None
+                palavras = []
+                for s in PROJETO["segmentos"]:
+                    if s["end"] > c["inicio"] and s["start"] < c["fim"]:
+                        palavras.extend(s["palavras"])
                 if legenda:
                     tamanho = fs or (76 if fmt in ("916", "45", "11") else 52)
-                    palavras = []
-                    for s in PROJETO["segmentos"]:
-                        if s["end"] > c["inicio"] and s["start"] < c["fim"]:
-                            palavras.extend(s["palavras"])
                     ass_nome = f"cap_{idx}_{fmt}.ass"
                     N.gerar_ass(palavras, c["inicio"], c["fim"],
                                 os.path.join(N.TEMP, ass_nome), W, H,
                                 "Arial Black", tamanho)
+                # exporta legendas separadas (SRT/ASS) quando houver texto
+                if palavras and fmt == fmtos[0]:
+                    base_leg = os.path.join(pasta, f"{base}")
+                    try:
+                        N.gerar_srt(palavras, c["inicio"], c["fim"], base_leg + ".srt")
+                        N.gerar_ass(palavras, c["inicio"], c["fim"], base_leg + ".ass", W, H, "Arial Black", fs or 52)
+                    except Exception:
+                        pass
                 out = os.path.join(pasta, f"{base}_{fmt}.mp4")
                 N.renderizar(PROJETO["src"], PROJETO["dims"], corte, fmt, modo,
                              ass_nome, out, N.TEMP, sem_legenda=not legenda,
@@ -645,6 +689,179 @@ def api_audio_tracks():
         return jsonify({"tracks": N.ffprobe_audio_tracks(src)})
     except Exception as e:
         return jsonify({"tracks": [], "erro": str(e)}), 500
+
+
+@app.route("/api/presets", methods=["GET", "POST"])
+def api_presets():
+    if request.method == "GET":
+        return jsonify({"presets": _ler_presets()})
+    d = request.get_json(force=True)
+    nome = (d.get("nome") or "").strip()[:60]
+    if not nome:
+        return jsonify({"erro": "nome do preset obrigatório"}), 400
+    cfg = d.get("config") or {}
+    if not isinstance(cfg, dict):
+        return jsonify({"erro": "config inválida"}), 400
+    presets = _ler_presets()
+    presets[nome] = cfg
+    _salvar_presets(presets)
+    return jsonify({"ok": True, "presets": presets})
+
+
+@app.route("/api/presets/<nome>", methods=["DELETE"])
+def api_presets_delete(nome):
+    nome = (nome or "").strip()
+    presets = _ler_presets()
+    if nome in presets:
+        del presets[nome]
+        _salvar_presets(presets)
+    return jsonify({"ok": True, "presets": presets})
+
+
+def _fila_snapshot():
+    with FILA_LOCK:
+        return json.loads(json.dumps(FILA))
+
+
+def _fila_worker():
+    while True:
+        FILA_EVENT.wait()
+        while True:
+            with FILA_LOCK:
+                item = None
+                for it in FILA["itens"]:
+                    if it["status"] == "pendente":
+                        item = it
+                        it["status"] = "rodando"
+                        it["msg"] = "iniciando..."
+                        FILA["atual"] = it["id"]
+                        break
+                if not item:
+                    FILA["ativa"] = False
+                    FILA["atual"] = None
+                    FILA_EVENT.clear()
+                    break
+            try:
+                _fila_executar(item)
+                with FILA_LOCK:
+                    item["status"] = "concluido"
+                    item["msg"] = "concluído"
+            except Exception as e:
+                with FILA_LOCK:
+                    item["status"] = "erro"
+                    item["msg"] = str(e)[-300:]
+
+
+def _aguardar_idle(timeout=60*60):
+    ini = time.time()
+    while time.time() - ini < timeout:
+        if not ESTADO.get("rodando"):
+            return True
+        time.sleep(1)
+    return not ESTADO.get("rodando")
+
+
+def _fila_executar(item):
+    tipo = item.get("tipo")
+    cfg = item.get("config") or {}
+    if tipo == "baixar":
+        url = (cfg.get("url") or "").strip()
+        if not url:
+            raise RuntimeError("URL vazia")
+        src, info = N.baixar(url, int(cfg.get("qualidade", 1080)), cfg.get("codec", "avc"),
+                             audio_only=bool(cfg.get("audio_only", False)),
+                             audio_format=cfg.get("audio_format", "mp3"),
+                             audio_quality=cfg.get("audio_quality", "192"))
+        titulo = info.get("title") if isinstance(info, dict) else ""
+        _add_hist(url, titulo, src)
+        item["msg"] = f"baixado: {os.path.basename(src)[:50]}"
+        return
+
+    if tipo == "analisar":
+        fonte = (cfg.get("fonte") or "").strip()
+        if not fonte:
+            raise RuntimeError("fonte vazia")
+        op = {
+            "n": max(1, min(40, int(cfg.get("n", 12)))),
+            "modelo": cfg.get("modelo", "small"),
+            "idioma": cfg.get("idioma", "pt") or "pt",
+            "qualidade": int(cfg.get("qualidade", 1080)),
+            "codec": cfg.get("codec", "avc"),
+            "limiar": round(max(1.5, 7.5 - float(cfg.get("sensibilidade", 5)) * 0.55), 2),
+            "duracao": float(cfg.get("duracao", 60) or 0),
+        }
+        while ESTADO.get("rodando"):
+            time.sleep(1)
+        _job_analisar(fonte, op)
+        _aguardar_idle()
+        if ESTADO.get("erro"):
+            raise RuntimeError(ESTADO.get("erro")[-300:])
+        item["msg"] = f"{len(PROJETO.get('candidatos', []))} trechos"
+        return
+
+    if tipo == "exportar":
+        while ESTADO.get("rodando"):
+            time.sleep(1)
+        if not PROJETO.get("candidatos"):
+            raise RuntimeError("sem candidatos para exportar")
+        total_cands = len(PROJETO["candidatos"])
+        itens = sorted({int(i) for i in cfg.get("itens", list(range(total_cands))) if 0 <= int(i) < total_cands})
+        fmtos = [f for f in cfg.get("formatos", ["916"]) if f in N.FORMATOS]
+        if not itens or not fmtos:
+            raise RuntimeError("exportação sem itens/formatos")
+        _job_exportar(itens, fmtos, cfg.get("modo", "blur"), int(cfg.get("crf", 18)),
+                      bool(cfg.get("legenda", True)), int(cfg.get("tamanho_fonte", 0)),
+                      (cfg.get("audio_mode") or "original"), int(cfg.get("audio_track", 0)),
+                      float(cfg.get("audio_gain_db", 0)))
+        _aguardar_idle()
+        if ESTADO.get("erro"):
+            raise RuntimeError(ESTADO.get("erro")[-300:])
+        item["msg"] = "exportado"
+        return
+
+    raise RuntimeError(f"tipo desconhecido: {tipo}")
+
+
+@app.route("/api/fila", methods=["GET", "POST"])
+def api_fila():
+    if request.method == "GET":
+        return jsonify(_fila_snapshot())
+    d = request.get_json(force=True)
+    itens = d.get("itens") or []
+    if not isinstance(itens, list) or not itens:
+        return jsonify({"erro": "envie itens da fila"}), 400
+    novos = []
+    with FILA_LOCK:
+        base = len(FILA["itens"])
+        for i, it in enumerate(itens):
+            tipo = (it.get("tipo") or "").strip()
+            if tipo not in ("baixar", "analisar", "exportar"):
+                continue
+            novos.append({
+                "id": f"f{int(time.time()*1000)}_{base+i}",
+                "tipo": tipo,
+                "config": it.get("config") or {},
+                "status": "pendente",
+                "msg": "na fila",
+            })
+        FILA["itens"].extend(novos)
+        FILA["ativa"] = True
+    if novos:
+        FILA_EVENT.set()
+        if not any(t.name == "fila-worker" for t in threading.enumerate()):
+            threading.Thread(target=_fila_worker, daemon=True, name="fila-worker").start()
+    return jsonify(_fila_snapshot())
+
+
+@app.route("/api/fila/limpar", methods=["POST"])
+def api_fila_limpar():
+    with FILA_LOCK:
+        FILA["itens"] = [i for i in FILA["itens"] if i["status"] == "rodando"]
+        if not FILA["itens"]:
+            FILA["ativa"] = False
+            FILA["atual"] = None
+            FILA_EVENT.clear()
+    return jsonify(_fila_snapshot())
 
 
 HIST = os.path.join(BASE, "historico.json")
@@ -1194,6 +1411,12 @@ HTML = r"""<!doctype html>
   .empty{color:var(--dim2);text-align:center;padding:46px 0;font-size:13px}
   .expbar{display:flex;align-items:center;gap:10px;margin-top:18px;padding-top:16px;
           border-top:1px solid var(--line);flex-wrap:wrap}
+  .fila-box{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#0f1420}
+  .fila-head{display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:8px}
+  .fila-list{display:flex;flex-direction:column;gap:6px;max-height:180px;overflow:auto}
+  .fila-item{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--dim);padding:6px 8px;border-radius:8px;background:#151b28;border:1px solid #ffffff10}
+  .fila-item b{color:var(--txt);font-size:11px;text-transform:uppercase}
+  .preset-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
   .tot{color:var(--dim);font-size:12.5px;font-variant-numeric:tabular-nums}
 
   .camwrap{display:flex;gap:16px;margin-top:14px;align-items:flex-start;flex-wrap:wrap}
@@ -1431,12 +1654,22 @@ HTML = r"""<!doctype html>
         <span id="camInfo" style="color:var(--dim2)"></span>
       </div>
     </div>
+    <div class="preset-row">
+      <div class="f" style="min-width:220px"><label>Preset</label><select id="presetSelect" onchange="aplicarPresetSelecionado()"><option value="">— selecionar —</option></select></div>
+      <button class="ghost sm" onclick="salvarPreset()">Salvar preset</button>
+      <button class="ghost sm" onclick="excluirPreset()">Excluir preset</button>
+    </div>
     <div class="expbar">
       <span class="tot" id="selinfo"></span>
       <span class="grow"></span>
+      <button class="ghost" onclick="adicionarFilaExportar()">+ fila exportação</button>
       <button class="ghost" onclick="abrirPasta()">Abrir pasta</button>
       <button class="ghost danger" onclick="sairApp()">Sair</button>
       <button id="btnExport" onclick="exportar()" disabled>Exportar</button>
+    </div>
+    <div class="fila-box">
+      <div class="fila-head"><div><b style="font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim)">Fila</b> <span id="filaStatus" style="font-size:12px;color:var(--dim2)"></span></div><div style="display:flex;gap:8px"><button class="ghost sm" onclick="adicionarFilaAnalise()">+ fila análise</button><button class="ghost sm" onclick="limparFila()">Limpar</button></div></div>
+      <div class="fila-list" id="filaList"><div class="fila-item">Fila vazia</div></div>
     </div>
   </section>
 </div>
@@ -1661,6 +1894,75 @@ function iniciarPolling(){
 }
 
 let durVideo = 0;
+
+function configAtual(){
+  return {
+    n:+document.getElementById('n').value, duracao:+document.getElementById('duracao').value,
+    modelo:document.getElementById('modelo').value, idioma:document.getElementById('idioma').value,
+    qualidade:+document.getElementById('qualidade').value, codec:document.getElementById('codec').value,
+    sensibilidade:+document.getElementById('sens').value, formatos:[...document.querySelectorAll('#fmtos .pill.on')].map(p=>p.dataset.f),
+    modo:document.getElementById('modo').value, crf:+document.getElementById('crf').value, legenda:document.getElementById('legenda').checked,
+    audio_mode:document.getElementById('audioMode').value, audio_track:+document.getElementById('audioTrack').value||0, audio_gain_db:+document.getElementById('audioGainDb').value||0
+  };
+}
+
+async function carregarPresets(){
+  try{
+    const j = await (await fetch('/api/presets')).json();
+    const sel = document.getElementById('presetSelect'); const cur = sel.value;
+    sel.innerHTML = '<option value="">— selecionar —</option>';
+    Object.keys(j.presets||{}).sort().forEach(nome=>{ const o=document.createElement('option'); o.value=nome; o.textContent=nome; sel.appendChild(o); });
+    if(cur) sel.value = cur;
+    window.__presets = j.presets || {};
+  }catch(e){}
+}
+
+function aplicarPresetSelecionado(){
+  const nome = document.getElementById('presetSelect').value; const p = (window.__presets||{})[nome]; if(!p) return;
+  const set = (id,val)=>{const el=document.getElementById(id); if(el!=null && val!=null) el.value=val;};
+  set('n',p.n); set('duracao',p.duracao); set('modelo',p.modelo); set('idioma',p.idioma); set('qualidade',p.qualidade); set('codec',p.codec); set('sens',p.sensibilidade);
+  if(p.sensibilidade!=null) document.getElementById('sensv').textContent=p.sensibilidade;
+  if(Array.isArray(p.formatos)){ document.querySelectorAll('#fmtos .pill').forEach(el=>el.classList.toggle('on', p.formatos.includes(el.dataset.f))); }
+  set('modo',p.modo); set('crf',p.crf); if(p.legenda!=null) document.getElementById('legenda').checked=!!p.legenda;
+  set('audioMode',p.audio_mode); set('audioGainDb',p.audio_gain_db); if(p.audio_gain_db!=null) document.getElementById('audioGainV').textContent=p.audio_gain_db;
+  toggleAudioMode(); modoMudou(); atualizarSelInfo();
+}
+
+async function salvarPreset(){
+  const nome = prompt('Nome do preset:'); if(!nome) return;
+  const r = await fetch('/api/presets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,config:configAtual()})});
+  const j = await r.json(); if(j.erro){toast(j.erro,'erro');return;} window.__presets=j.presets||{}; await carregarPresets(); document.getElementById('presetSelect').value=nome; toast('Preset salvo','ok');
+}
+async function excluirPreset(){
+  const nome = document.getElementById('presetSelect').value; if(!nome){toast('Selecione um preset','erro');return;}
+  if(!await confirmar(`Excluir preset "${nome}"?`)) return;
+  const r = await fetch('/api/presets/'+encodeURIComponent(nome),{method:'DELETE'}); const j=await r.json(); window.__presets=j.presets||{}; await carregarPresets(); toast('Preset excluído','ok');
+}
+
+async function atualizarFila(){
+  try{
+    const j = await (await fetch('/api/fila')).json();
+    const list = document.getElementById('filaList');
+    const itens = j.itens || [];
+    document.getElementById('filaStatus').textContent = j.ativa ? ` • ativa (${itens.filter(i=>i.status!=='concluido').length} pendente/rodando)` : '';
+    if(!itens.length){ list.innerHTML='<div class="fila-item">Fila vazia</div>'; return; }
+    list.innerHTML = itens.slice(-20).map(i=>`<div class="fila-item"><b>${i.status}</b><span>${i.tipo}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(i.msg||'').replace(/</g,'&lt;')}</span></div>`).join('');
+  }catch(e){}
+}
+
+async function adicionarFilaAnalise(){
+  const fonte = document.getElementById('fonte').value.trim(); if(!fonte){toast('Cole fonte para enfileirar','erro');return;}
+  const cfg = {...configAtual(), fonte};
+  const r = await fetch('/api/fila',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itens:[{tipo:'analisar',config:cfg}]})});
+  const j = await r.json(); if(j.erro){toast(j.erro,'erro');return;} toast('Análise adicionada à fila','ok'); atualizarFila();
+}
+async function adicionarFilaExportar(){
+  const ids=[...selecionados]; if(!ids.length){toast('Selecione trechos','erro');return;}
+  const cfg = {...configAtual(), itens:ids};
+  const r = await fetch('/api/fila',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itens:[{tipo:'exportar',config:cfg}]})});
+  const j = await r.json(); if(j.erro){toast(j.erro,'erro');return;} toast('Exportação adicionada à fila','ok'); atualizarFila();
+}
+async function limparFila(){ await fetch('/api/fila/limpar',{method:'POST'}); atualizarFila(); }
 
 async function carregarCandidatos(){
   const d = await (await fetch("/api/candidatos")).json();
@@ -2182,8 +2484,8 @@ async function detectarCam(){
 
 (async () => {
   try {
-    atualizarNetwork();
-    setInterval(atualizarNetwork, 15000);
+    atualizarNetwork(); carregarPresets(); atualizarFila();
+    setInterval(atualizarNetwork, 15000); setInterval(atualizarFila, 5000);
     const st = await (await fetch("/api/status")).json();
     if(st && st.rodando){
       document.getElementById("prog").style.width = (st.pct||0) + "%";
@@ -2200,15 +2502,29 @@ async function detectarCam(){
 
 
 def _restaurar_ultimo():
-    """Deixa o ultimo video pronto pra ver a cam mesmo sem reanalisar."""
+    """Restaura ultimo video/projeto para continuar sem reanalisar."""
     try:
-        src = (_ler_ultimo() or {}).get("src")
+        data = _ler_ultimo() or {}
+        src = data.get("src")
         if not src or not os.path.exists(src):
             return
+        projeto = data.get("projeto") or {}
         with LOCK:
-            PROJETO.update(src=src, dims=N.ffprobe_dims(src),
-                           titulo=os.path.splitext(os.path.basename(src))[0],
-                           dur=N.ffprobe_dur(src), chave=_chave(src))
+            if projeto.get("src") and os.path.abspath(projeto.get("src")) == os.path.abspath(src) and projeto.get("candidatos"):
+                PROJETO.update({
+                    "src": src,
+                    "dims": projeto.get("dims") or N.ffprobe_dims(src),
+                    "titulo": projeto.get("titulo") or os.path.splitext(os.path.basename(src))[0],
+                    "dur": float(projeto.get("dur") or N.ffprobe_dur(src)),
+                    "segmentos": projeto.get("segmentos") or [],
+                    "candidatos": projeto.get("candidatos") or [],
+                    "chave": projeto.get("chave") or _chave(src),
+                })
+            else:
+                PROJETO.update(src=src, dims=N.ffprobe_dims(src),
+                               titulo=os.path.splitext(os.path.basename(src))[0],
+                               dur=N.ffprobe_dur(src), chave=_chave(src),
+                               segmentos=[], candidatos=[])
     except Exception:
         traceback.print_exc()
 

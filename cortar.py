@@ -638,6 +638,20 @@ def montar_cortes(candidatos, segmentos, minimo=18.0, maximo=55.0, n=10,
 
 # ------------------------------------------------------------------- legendas
 
+def _agrupar_palavras(palavras, max_pal=3, max_dur=2.2):
+    grupos = []
+    grupo = []
+    for w in palavras or []:
+        grupo.append(w)
+        dur = grupo[-1]["t1"] - grupo[0]["t0"]
+        if len(grupo) >= max_pal or dur > max_dur:
+            grupos.append(grupo)
+            grupo = []
+    if grupo:
+        grupos.append(grupo)
+    return [{"inicio": g[0]["t0"], "fim": g[-1]["t1"], "texto": " ".join(x["p"] for x in g)} for g in grupos]
+
+
 def ass_time(t):
     h = int(t // 3600)
     m = int((t % 3600) // 60)
@@ -662,35 +676,25 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 
 def gerar_ass(palavras, inicio, fim, path, W, H, fonte, fs):
-    """Agrupa palavras de 2 em 2 (ou 3) e escreve um .ass com o trecho do corte."""
+    """Gera .ass com legendas curtas e legíveis para o trecho do corte."""
     linhas = []
-    grupo = []
-
-    def flush():
-        if not grupo:
-            return
-        txt = " ".join(w["p"] for w in grupo).strip()
-        txt = re.sub(r"[{}]", "", txt).replace(",", "").upper()
-        t0 = grupo[0]["t0"] - inicio
-        t1 = grupo[-1]["t1"] - inicio
+    grupos = _agrupar_palavras(
+        [w for w in (palavras or []) if not (w["t1"] <= inicio or w["t0"] >= fim)],
+        max_pal=3, max_dur=2.2,
+    )
+    for g in grupos:
+        txt = re.sub(r"[{}]", "", g["texto"]).replace(",", "").strip().upper()
+        if not txt:
+            continue
+        t0 = g["inicio"] - inicio
+        t1 = g["fim"] - inicio
         if t1 - t0 < 0.25:
             t1 = t0 + 0.25
         if t0 < 0 and t1 > 0:
             t0 = 0
-        if t0 < 0:
-            grupo.clear()
-            return
-        linhas.append(f"Dialogue: 0,{ass_time(t0)},{ass_time(t1)},Cap,,0,0,0,,{txt}")
-        grupo.clear()
-
-    for w in palavras:
-        if w["t1"] <= inicio or w["t0"] >= fim:
+        if t0 < 0 or t1 > (fim - inicio + 0.5):
             continue
-        grupo.append(w)
-        dur = grupo[-1]["t1"] - grupo[0]["t0"]
-        if len(grupo) >= 3 or dur > 2.2:
-            flush()
-    flush()
+        linhas.append(f"Dialogue: 0,{ass_time(t0)},{ass_time(t1)},Cap,,0,0,0,,{txt}")
 
     mv = int(H * 0.27) if H > W else int(H * 0.10)
     ml = int(W * 0.06)
@@ -700,6 +704,41 @@ def gerar_ass(palavras, inicio, fim, path, W, H, fonte, fs):
             BORDA=max(3, fs // 12), ML=ml, MR=ml, MV=mv,
         ))
         f.write("\n".join(linhas) + "\n")
+
+
+def gerar_srt(palavras, inicio_corte, fim_corte, out_path):
+    grupos = _agrupar_palavras(
+        [w for w in (palavras or []) if not (w["t1"] <= inicio_corte or w["t0"] >= fim_corte)],
+        max_pal=6, max_dur=1.8,
+    )
+    linhas = []
+    idx = 1
+    for g in grupos:
+        a = max(0.0, g["inicio"] - inicio_corte)
+        b = max(a + 0.2, g["fim"] - inicio_corte)
+        if b <= 0 or a >= (fim_corte - inicio_corte):
+            continue
+        txt = g["texto"].strip()
+        if not txt:
+            continue
+        linhas.append(str(idx))
+        linhas.append(f"{_srt_ts(a)} --> {_srt_ts(b)}")
+        linhas.append(txt)
+        linhas.append("")
+        idx += 1
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(linhas))
+
+
+def _srt_ts(t):
+    t = max(0.0, float(t))
+    h = int(t // 3600)
+    m = int((t % 3600) // 60)
+    s = int(t % 60)
+    ms = int(round((t - int(t)) * 1000))
+    if ms == 1000:
+        s += 1; ms = 0
+    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
 # -------------------------------------------------------------------- render
