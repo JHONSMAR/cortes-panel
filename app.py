@@ -1554,7 +1554,7 @@ HTML = r"""<!doctype html>
       </div>
     </div>
     <div class="row mt">
-      <div class="f"><label>AAudio do clipe</label>
+      <div class="f"><label>Audio do clipe</label>
         <select id="audioMode" onchange="toggleAudioMode()">
           <option value="original" selected>Original</option>
           <option value="normalize">Normalizar</option>
