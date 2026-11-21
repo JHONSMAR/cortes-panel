@@ -146,11 +146,9 @@ def _job_analisar(fonte, opcoes):
             PROJETO.update({"src": None, "dims": None, "titulo": "", "dur": 0.0,
                             "segmentos": [], "candidatos": [], "chave": ""})
 
-        cookies_file = opcoes.get("cookies_file")
         if re.match(r"^https?://", fonte):
             _set(5, "download", "baixando video do YouTube...")
-            src, info = N.baixar(fonte, opcoes["qualidade"], opcoes["codec"],
-                                 cookies_file=cookies_file)
+            src, info = N.baixar(fonte, opcoes["qualidade"], opcoes["codec"])
             titulo = info.get("title") or "live"
             _add_hist(fonte, titulo, src)
         else:
@@ -313,7 +311,6 @@ def api_analisar():
         "qualidade": int(d.get("qualidade", 1080)),
         "codec": d.get("codec", "avc"),
         "limiar": round(max(1.5, 7.5 - sens * 0.55), 2),
-        "cookies_file": d.get("cookies") or None,
         "duracao": duracao,
     }
     threading.Thread(target=_job_analisar, args=(fonte, opcoes), daemon=True).start()
@@ -625,13 +622,11 @@ def api_baixar():
         return jsonify({"erro": "faltou o link"}), 400
     qual = int(d.get("qualidade") or 1080)
     codec = d.get("codec") or "avc"
-    cookies_file = d.get("cookies") or None
-
     def job():
         try:
             _set(rodando=True, erro=None, pct=2, etapa="download",
                  msg="baixando " + url[-24:])
-            src, info = N.baixar(url, qual, codec, cookies_file=cookies_file)
+            src, info = N.baixar(url, qual, codec)
             titulo = info.get("title") if isinstance(info, dict) else ""
             _add_hist(url, titulo, src)
             _set(rodando=False, pct=100, etapa="pronto",
@@ -1206,10 +1201,7 @@ HTML = r"""<!doctype html>
         <label>Link do YouTube ou arquivo local</label>
         <input type="text" id="fonte" placeholder="https://www.youtube.com/live/...">
       </div>
-      <div class="f" style="min-width:auto">
-        <label>&nbsp;</label>
-        <input type="text" id="cookies" placeholder="cookies.txt (opcional) — ou salve cookies.txt na pasta do projeto">
-      </div>
+      <!-- cookies removidos: download usa yt-dlp sem cookies do navegador -->
       <button id="btnAnalisar" onclick="analisar()">Analisar</button>
     </div>
     <div class="row mt">
@@ -1393,7 +1385,7 @@ async function analisar(){
     qualidade: +document.getElementById("qualidade").value,
     codec: document.getElementById("codec").value,
     sensibilidade: +document.getElementById("sens").value,
-    cookies: document.getElementById("cookies").value.trim() || null
+    // cookies removido
   };
   document.getElementById("btnAnalisar").disabled = true;
   document.getElementById("erro").style.display = "none";
@@ -1768,8 +1760,7 @@ async function baixarUrl(url, btn){
   document.getElementById("erro").style.display = "none";
   const r = await fetch("/api/baixar", {
     method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({url, qualidade:1440, codec:"vp9",
-      cookies: document.getElementById("cookies").value.trim() || null})
+    body: JSON.stringify({url, qualidade:1440, codec:"vp9"})
   });
   const j = await r.json();
   if(j.erro){ toast(j.erro, "erro"); if(btn) btn.disabled = false; return; }

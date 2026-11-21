@@ -24,7 +24,7 @@ Painel web local para **encontrar, ajustar e exportar automaticamente os melhore
 ## Como funciona (pipeline)
 
 1. **Fonte**: informa um link do YouTube ou caminho local.
-2. **Download (opcional)**: baixa o VOD com `yt-dlp` (suporte a cookies, seleção de qualidade/codec).
+2. **Download (opcional)**: baixa o VOD com `yt-dlp` (seleção de qualidade/codec).
 3. **Áudio**: extrai áudio WAV 16 kHz mono via FFmpeg.
 4. **Transcrição**: gera segmentos/palavras com `faster-whisper` (cache em `.wav.json`).
 5. **Detecção de picos**: calcula energia RMS por janela, normaliza por mediana local e seleciona candidatos.
@@ -145,7 +145,7 @@ O frontend se comunica com o backend Flask via endpoints locais (exemplos):
 
 ## Dicas e troubleshooting
 
-- **YouTube pedindo login/captcha**: forneça um `cookies.txt` no campo opcional do painel (ou via CLI, se suportado) para autenticar o download.
+- **YouTube bloqueando download (anti-bot)**: atualize o `yt-dlp` (`pip install -U yt-dlp`) e tente novamente. O app já usa runtime JS/EJS e fallbacks de formato/client para melhorar a compatibilidade.
 - **Transcrição lenta na CPU**: use modelo menor (`tiny`/`base`) ou configure CUDA para aceleração.
 - **FFmpeg não encontrado**: verifique instalação/PATH e a configuração de diretório do FFmpeg em `cortar.py`.
 - **Sem candidatos encontrados**: ajuste a sensibilidade no painel ou os parâmetros de detecção/corte.
