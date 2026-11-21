@@ -1027,6 +1027,19 @@ def api_abrir_pasta():
     return jsonify({"erro": "pasta nao existe"}), 404
 
 
+@app.route("/api/sair", methods=["POST"])
+def api_sair():
+    if ESTADO.get("rodando"):
+        return jsonify({"erro": "Tem tarefa rodando. Espere terminar ou use com cuidado."}), 409
+
+    def _bye():
+        time.sleep(0.5)
+        os._exit(0)
+
+    threading.Thread(target=_bye, daemon=True).start()
+    return jsonify({"ok": True, "msg": "Encerrando Cortes..."})
+
+
 @app.route("/")
 def index():
     return Response(HTML, mimetype="text/html")
@@ -1422,6 +1435,7 @@ HTML = r"""<!doctype html>
       <span class="tot" id="selinfo"></span>
       <span class="grow"></span>
       <button class="ghost" onclick="abrirPasta()">Abrir pasta</button>
+      <button class="ghost danger" onclick="sairApp()">Sair</button>
       <button id="btnExport" onclick="exportar()" disabled>Exportar</button>
     </div>
   </section>
@@ -1868,6 +1882,19 @@ async function exportar(){
 async function abrirPasta(){
   const s = await (await fetch("/api/status")).json();
   await fetch("/api/abrir-pasta", {method:"POST", headers:{"Content-Type":"application/json"}, body: "{}"});
+}
+
+async function sairApp(){
+  if(!await confirmar("Encerrar o Cortes? O painel vai fechar.")) return;
+  try{
+    const r = await fetch("/api/sair", {method:"POST"});
+    const j = await r.json();
+    if(j.erro){ toast(j.erro, "erro"); return; }
+    toast("Encerrando...", "ok");
+    document.body.innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;background:#0c0e14;color:#f2f3f7;font-family:Inter,system-ui,sans-serif"><div style="text-align:center"><h2 style="margin:0 0 8px">Cortes encerrado</h2><p style="margin:0;color:#9ca3b4">Pode fechar esta aba.</p></div></div>';
+  }catch(e){
+    toast("Encerrando...", "ok");
+  }
 }
 
 async function listarVods(){
