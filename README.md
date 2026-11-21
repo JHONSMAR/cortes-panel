@@ -131,9 +131,13 @@ python cortar.py "E:\CORTES\vods\minha-live.mp4" --clips 5 --sem-legenda
 - `POST /api/analisar` — inicia análise
 - `GET /api/candidatos` — candidatos do projeto
 - `POST /api/ajustar` / `POST /api/exportar` — edição/exportação
-- `POST /api/baixar` — download/rebaixar VOD
+- `POST /api/baixar` — download/rebaixar VOD (inclui modo só-áudio)
+- `GET /api/audio-tracks` — faixas de áudio do vídeo atual
+- `GET/POST /api/presets`, `DELETE /api/presets/<nome>` — presets locais
+- `GET/POST /api/fila`, `POST /api/fila/limpar` — fila sequencial
 - `GET /api/network-status` — status WARP + bgutil
 - `POST /api/warp/connect` / `POST /api/warp/disconnect` — controle opcional do Cloudflare WARP
+- `POST /api/sair` — encerra o painel
 - `GET /api/arquivos` + endpoints de limpeza — gerenciamento de disco
 - `GET/POST /api/cam`, `POST /api/detectar-cam` — layout de cam
 
@@ -152,6 +156,10 @@ python cortar.py "E:\CORTES\vods\minha-live.mp4" --clips 5 --sem-legenda
 - **Sem janelas de CMD**: FFmpeg/FFprobe/WARP são chamados sem abrir janelas de console no Windows.
 - **Idioma da transcrição**: PT-BR, EN, FR, ES, Auto.
 - **Áudio**: download só-áudio (MP3/M4A/Opus/WAV + qualidade), escolha de faixa de áudio no export, modo de áudio do clipe (original, normalizar, ganho dB, sem áudio).
+- **Presets**: salve/carregue presets de análise/exportação no painel (`presets.json` local).
+- **Fila**: enfileire análises/exportações para rodar em sequência (`/api/fila`).
+- **Retomar projeto**: o último projeto com candidatos é salvo em `estado.json` e pode ser reaberto sem reanalisar.
+- **Legendas separadas**: ao exportar, o Cortes também gera `.srt` e `.ass` por trecho (além do MP4 com legenda queimada, se habilitada).
 
 ## Troubleshooting
 
