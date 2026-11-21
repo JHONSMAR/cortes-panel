@@ -145,7 +145,8 @@ O frontend se comunica com o backend Flask via endpoints locais (exemplos):
 
 ## Dicas e troubleshooting
 
-- **YouTube bloqueando download (anti-bot)**: atualize o `yt-dlp` (`pip install -U yt-dlp`) e tente novamente. O app já usa runtime JS/EJS e fallbacks de formato/client para melhorar a compatibilidade.
+- **YouTube bloqueando download (anti-bot / "Sign in to confirm you're not a bot")**: isso geralmente é verificação de PO Token/reputação de IP do YouTube, não bug do app. O Cortes já usa yt-dlp com Node/EJS e client fallback. Atualize o `yt-dlp` (`python -m pip install -U yt-dlp`). Se falhar, baixe o vídeo por outro método e cole o **caminho do arquivo local** no campo de fonte — a análise/corte/exportação funciona normalmente.
+- **Suporte opcional a PO Token (sem cookies, avançado)**: o Cortes detecta automaticamente o plugin/provider `bgutil-ytdlp-pot-provider` quando disponível no mesmo Python. Instale o plugin (`python -m pip install -U bgutil-ytdlp-pot-provider`) e rode o provider HTTP (padrão `http://127.0.0.1:4416`) conforme a [documentação do bgutil](https://github.com/Brainicism/bgutil-ytdlp-pot-provider) e o [guia de PO Token do yt-dlp](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide). Use `BGUTIL_POT_PROVIDER_URL` para URL customizada ou `BGUTIL_POT_DISABLE=1` para desabilitar. Isso pode ajudar, mas **não garante** bypass se o IP estiver flagged.
 - **Transcrição lenta na CPU**: use modelo menor (`tiny`/`base`) ou configure CUDA para aceleração.
 - **FFmpeg não encontrado**: verifique instalação/PATH e a configuração de diretório do FFmpeg em `cortar.py`.
 - **Sem candidatos encontrados**: ajuste a sensibilidade no painel ou os parâmetros de detecção/corte.

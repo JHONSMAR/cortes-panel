@@ -632,7 +632,13 @@ def api_baixar():
             _set(rodando=False, pct=100, etapa="pronto",
                  msg="baixado: " + os.path.basename(src)[:60])
         except Exception as e:
-            _set(rodando=False, pct=0, etapa="erro", erro=f"falha no download: {e}")
+            msg = str(e)
+            if ("anti-bot/PO token" in msg or "Sign in to confirm" in msg) and "caminho do arquivo local" not in msg:
+                msg = (
+                    f"{msg}\n"
+                    "Dica: baixe o vídeo por outro método e cole o caminho do arquivo local no campo de fonte."
+                )
+            _set(rodando=False, pct=0, etapa="erro", erro=f"falha no download: {msg}")
 
     threading.Thread(target=job, daemon=True).start()
     return jsonify({"ok": True})

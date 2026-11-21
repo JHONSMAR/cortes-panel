@@ -136,8 +136,45 @@ def hhmmss(t):
     s = int(t % 60)
     return f"{h:02d}h{m:02d}m{s:02d}s"
 
-
 # ------------------------------------------------------------------- download
+
+
+def _bgutil_pot_status():
+    """Detecta suporte opcional a PO Token via bgutil-ytdlp-pot-provider.
+
+    O plugin yt-dlp é auto-descoberto quando instalado no mesmo ambiente Python.
+    O provider HTTP (opção recomendada) roda por padrão em 127.0.0.1:4416.
+    Variáveis de ambiente:
+      - BGUTIL_POT_PROVIDER_URL: URL base do provider HTTP (ex: http://127.0.0.1:4416)
+      - BGUTIL_POT_DISABLE=1: desabilita integração explicitamente
+    """
+    if os.environ.get("BGUTIL_POT_DISABLE", "").strip() == "1":
+        return {"plugin": False, "provider": False, "base_url": None, "disabled": True}
+
+    base_url = os.environ.get("BGUTIL_POT_PROVIDER_URL", "").strip().rstrip("/")
+    if not base_url:
+        base_url = "http://127.0.0.1:4416"
+
+    plugin = False
+    try:
+        import importlib.util
+        plugin = importlib.util.find_spec("yt_dlp_plugins.extractor.getpot_bgutil_http") is not None
+        if not plugin:
+            plugin = importlib.util.find_spec("bgutil_ytdlp_pot_provider") is not None
+    except Exception:
+        plugin = False
+
+    provider = False
+    try:
+        import urllib.request
+        req = urllib.request.Request(base_url + "/ping", headers={"User-Agent": "cortes-pot-check"})
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
+            provider = 200 <= getattr(resp, "status", 200) < 500
+    except Exception:
+        provider = False
+
+    return {"plugin": plugin, "provider": provider, "base_url": base_url, "disabled": False}
+
 
 def baixar(url, qual=1080, codec="avc", nome=None):
     import yt_dlp
@@ -164,6 +201,19 @@ def baixar(url, qual=1080, codec="avc", nome=None):
         elif d.get("status") == "finished":
             print()
 
+    extractor_args = {"youtube": {"player_client": ["default", "-web_safari"]}}
+    pot = _bgutil_pot_status()
+    if pot["disabled"]:
+        log("[yt-dlp] bgutil PO token desabilitado por BGUTIL_POT_DISABLE=1")
+    elif pot["plugin"] and pot["provider"]:
+        log(f"[yt-dlp] bgutil PO token provider ativo em {pot['base_url']}")
+        if pot["base_url"] != "http://127.0.0.1:4416":
+            extractor_args["youtubepot-bgutilhttp"] = {"base_url": [pot["base_url"]]}
+    elif pot["plugin"]:
+        log(f"[yt-dlp] plugin bgutil instalado, mas provider HTTP não respondeu em {pot['base_url']} (PO token opcional indisponível)")
+    else:
+        log("[yt-dlp] bgutil PO token provider não detectado (opcional)")
+
     opcoes = {
         "format": fmt,
         "outtmpl": os.path.join(VODS, modelo_nome),
@@ -179,13 +229,28 @@ def baixar(url, qual=1080, codec="avc", nome=None):
         # Necessário para YouTube atual (nsig/ejs). Node já está instalado.
         "js_runtimes": {"node": {}},
         "remote_components": ["ejs:github"],
-        "extractor_args": {"youtube": {"player_client": ["default", "-web_safari"]}},
+        "extractor_args": extractor_args,
         "logger": _YtLogger(),
     }
 
-    with yt_dlp.YoutubeDL(opcoes) as ydl:
-        info = ydl.extract_info(url, download=True)
-        path = info.get("requested_downloads", [{}])[0].get("filepath") or ydl.prepare_filename(info)
+    try:
+        with yt_dlp.YoutubeDL(opcoes) as ydl:
+            info = ydl.extract_info(url, download=True)
+            path = info.get("requested_downloads", [{}])[0].get("filepath") or ydl.prepare_filename(info)
+    except Exception as e:
+        msg = str(e)
+        if "Sign in to confirm" in msg or "not a bot" in msg.lower():
+            hint = (
+                "YouTube bloqueou o download (anti-bot/PO token). "
+                "Sem cookies, tente: 1) usar o caminho de arquivo local no Cortes; "
+                "2) configurar bgutil-ytdlp-pot-provider (PO token opcional, sem garantir bypass de IP flagged)."
+            )
+            if pot["plugin"] and not pot["provider"]:
+                hint += f" Plugin bgutil detectado, mas provider HTTP não respondeu em {pot['base_url']}."
+            elif not pot["plugin"]:
+                hint += " Plugin bgutil não instalado neste ambiente Python."
+            raise RuntimeError(hint) from e
+        raise
 
     log(f"      salvo em: {path}")
     return path, info
