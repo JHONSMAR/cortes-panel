@@ -168,26 +168,40 @@ def baixar(url, qual=1080, codec="avc", nome=None, cookies_file=None):
         return path, info
 
     def _browser_cookie_paths():
+        import glob
         env = os.environ
         local = env.get("LOCALAPPDATA", "")
         roaming = env.get("APPDATA", "")
+
+        def _glob_many(patterns):
+            out = []
+            for pat in patterns:
+                out.extend(glob.glob(pat))
+            return out
+
+        chromium_profiles = lambda base: _glob_many([
+            os.path.join(base, "Default", "Network", "Cookies"),
+            os.path.join(base, "Default", "Cookies"),
+            os.path.join(base, "Profile *", "Network", "Cookies"),
+            os.path.join(base, "Profile *", "Cookies"),
+        ])
+
         return {
-            "edge": [os.path.join(local, "Microsoft", "Edge", "User Data", "Default", "Network", "Cookies"),
-                     os.path.join(local, "Microsoft", "Edge", "User Data", "Default", "Cookies")],
-            "chrome": [os.path.join(local, "Google", "Chrome", "User Data", "Default", "Network", "Cookies"),
-                       os.path.join(local, "Google", "Chrome", "User Data", "Default", "Cookies")],
-            "chromium": [os.path.join(local, "Chromium", "User Data", "Default", "Network", "Cookies")],
-            "firefox": [os.path.join(roaming, "Mozilla", "Firefox", "Profiles")],
-            "brave": [os.path.join(local, "BraveSoftware", "Brave-Browser", "User Data", "Default", "Network", "Cookies")],
-            "opera": [os.path.join(roaming, "Opera Software", "Opera Stable", "Network", "Cookies")],
-            "vivaldi": [os.path.join(local, "Vivaldi", "User Data", "Default", "Network", "Cookies")],
+            "edge": chromium_profiles(os.path.join(local, "Microsoft", "Edge", "User Data")),
+            "chrome": chromium_profiles(os.path.join(local, "Google", "Chrome", "User Data")),
+            "chromium": chromium_profiles(os.path.join(local, "Chromium", "User Data")),
+            "firefox": _glob_many([
+                os.path.join(roaming, "Mozilla", "Firefox", "Profiles", "*.default*", "cookies.sqlite"),
+                os.path.join(roaming, "Mozilla", "Firefox", "Profiles", "*", "cookies.sqlite"),
+            ]),
+            "brave": chromium_profiles(os.path.join(local, "BraveSoftware", "Brave-Browser", "User Data")),
+            "opera": chromium_profiles(os.path.join(roaming, "Opera Software", "Opera Stable")) +
+                     chromium_profiles(os.path.join(roaming, "Opera Software", "Opera GX Stable")),
+            "vivaldi": chromium_profiles(os.path.join(local, "Vivaldi", "User Data")),
         }
 
     def _browser_presente(browser, paths):
-        for p in paths.get(browser, []):
-            if os.path.exists(p):
-                return True
-        return False
+        return any(os.path.exists(p) for p in paths.get(browser, []))
 
     try:
         path, info = _tentar(opcoes_base)
